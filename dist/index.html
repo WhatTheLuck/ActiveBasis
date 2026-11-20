@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>ActiveBasis</title>
+  <script type="module" crossorigin src="./assets/index-D-uLYxYp.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-D_4kzirv.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        <strong>ActiveBasis</strong>
+      </div>
+      <div class="round-bar" role="group" aria-label="训练大轮次">
+        <button id="open-iterations" class="action-button" type="button"
+          aria-haspopup="dialog" aria-controls="iteration-dialog">大轮次</button>
+        <div id="round" class="round-steps"></div>
+      </div>
+      <div class="score-controls" role="group" aria-label="乐谱显示">
+        <label for="window-size">窗口宽度</label>
+        <input id="window-size" type="range" min="0" max="3" step="1" value="1" aria-valuetext="8 拍">
+        <output id="window-beats" for="window-size">8 拍</output>
+        <label class="blur-toggle"><input id="blurred" type="checkbox"> 显示模糊</label>
+      </div>
+      <div id="kernel-controls" role="group" aria-label="全局模糊参数">
+        <span id="blur-record-note" hidden>历史回放分阶段</span>
+      </div>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="sidebar">
+      <nav id="stages" aria-label="训练流程"></nav>
+      <label class="mobile-stage">训练阶段
+        <select id="stage-select"><option value="" disabled hidden>选择训练阶段</option></select>
+      </label>
+    </aside>
+    <main id="workspace"><h1 class="sr-only">ActiveBasis</h1></main>
+  </div>
+  <dialog id="response-dictionary-dialog" class="playback-dialog" aria-labelledby="response-dictionary-title">
+    <header class="playback-dialog-header">
+      <h2 id="response-dictionary-title">词典</h2>
+      <form method="dialog"><button class="action-button" autofocus>关闭</button></form>
+    </header>
+    <div id="response-dictionary" class="playback-dialog-body"></div>
+  </dialog>
+  <dialog id="iteration-dialog" class="playback-dialog" aria-labelledby="iteration-title">
+    <header class="playback-dialog-header">
+      <h2 id="iteration-title">大轮次迭代</h2>
+      <div class="iteration-header-actions">
+        <div id="training-actions"></div>
+        <form method="dialog"><button class="action-button" autofocus>关闭</button></form>
+      </div>
+      <p id="iteration-status" class="helper" role="status"></p>
+      <div class="iteration-navigation" role="group" aria-label="查看训练轮次">
+        <button id="iteration-prev" class="action-button" type="button">上一轮</button>
+        <div id="iteration-steps" class="round-steps"></div>
+        <button id="iteration-next" class="action-button" type="button">下一轮</button>
+      </div>
+    </header>
+    <div class="playback-dialog-body">
+      <details id="iteration-settings">
+        <summary>迭代设置</summary>
+      </details>
+      <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
+      <section id="iteration-trend" aria-label="指标曲线"></section>
+    </div>
+  </dialog>
+  <template id="stage-template">
+    <section class="playback-stage">
+      <header class="stage-heading">
+        <div><h2 data-part="title"></h2><p data-part="description"></p></div>
+        <div data-part="value" class="stage-value"></div>
+      </header>
+      <div data-part="controls"></div>
+      <div data-part="context"></div>
+      <div data-part="transport" class="transport" role="group">
+        <div class="transport-caption">
+          <label data-part="progressLabel" class="progress-label"></label>
+          <output data-part="position" class="position" aria-live="off"></output>
+          <p data-part="progressDescription" class="progress-description"></p>
+        </div>
+        <div class="transport-row">
+          <div class="transport-buttons">
+            <button type="button" data-part="back" class="icon-button" aria-label="上一步" title="上一步（←）"></button>
+            <button type="button" data-part="play" class="play-button" aria-label="播放" title="播放或暂停（空格）"></button>
+            <button type="button" data-part="next" class="icon-button" aria-label="下一步" title="下一步（→）"></button>
+          </div>
+          <input data-part="scrub" class="scrub" type="range" min="0" max="0" value="0">
+          <label class="speed"><span class="sr-only">播放速度</span><select data-part="speed" aria-label="播放速度">
+            <option value="0.5">0.5×</option><option value="1">1×</option><option value="2">2×</option>
+            <option value="4" selected>4×</option><option value="8">8×</option><option value="16">16×</option>
+          </select></label>
+        </div>
+      </div>
+      <div data-part="view"></div>
+    </section>
+  </template>
+</body>
+</html>
