@@ -24,6 +24,8 @@
           <button id="top-round-add" class="round-step round-add" type="button" hidden disabled
             aria-label="训练下一轮" title="训练下一轮" aria-haspopup="dialog" aria-controls="iteration-dialog"><span aria-hidden="true">+</span></button>
         </div>
+        <button id="open-round-batch" class="action-button" type="button" hidden disabled
+          aria-haspopup="dialog" aria-controls="iteration-dialog">运行 N 轮</button>
       </div>
       <div class="score-controls" role="group" aria-label="乐谱显示">
         <label for="window-size">窗口宽度</label>
@@ -78,6 +80,11 @@
             aria-label="训练下一轮" title="训练下一轮"><span aria-hidden="true">+</span></button>
         </div>
       </div>
+      <form id="round-batch" class="round-batch" hidden>
+        <label for="round-batch-count">本次轮数</label>
+        <input id="round-batch-count" type="number" min="1" step="1" inputmode="numeric" placeholder="N" required>
+        <button class="action-button" type="submit" disabled>运行 N 轮</button>
+      </form>
     </header>
     <div class="playback-dialog-body">
       <details id="iteration-settings">

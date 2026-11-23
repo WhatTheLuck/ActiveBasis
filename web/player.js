@@ -2238,7 +2238,7 @@ function launchControls() {
       [["learnedMin", "下限", 3, 1, 32], ["learnedMax", "上限", 8, 1, 32]], [1, 32]),
   );
   const iteration = element("div", "control-strip parameter-grid");
-  iteration.append(parameter("rounds", "初始训练轮数", "运行训练时执行的轮数。点击轮次栏右侧的加号可继续迭代。", 2, 1),
+  iteration.append(parameter("rounds", "初始训练轮数", "自动重算和运行训练时执行的轮数。续训可用加号或「运行 N 轮」。", 2, 1),
     parameter("growth", "字典满载时扩容单词数", "新一轮开始时，若上轮重学习填满字典，就新增这么多空槽。设为 0 时保持字典容量。", 3, 0, 12));
   get("iteration-settings").append(parameterPanel("", iteration));
   form.append(trainButton, cancelButton);
@@ -2566,6 +2566,10 @@ const roundTimelines = [get("round"), get("iteration-steps")].map(strip => ({
   strip, addButton: strip.querySelector(".round-add"),
 }));
 const iterationNext = get("iteration-next");
+const openRoundBatch = get("open-round-batch");
+const roundBatch = get("round-batch");
+const roundBatchCount = get("round-batch-count");
+const roundBatchButton = roundBatch.querySelector("button");
 
 function canContinue() {
   return live && data.rounds.length > 0;
@@ -2577,7 +2581,7 @@ function openIterations() {
   if (!sourceReady && !canContinue()) {
     iterationStatus.textContent = form.hidden ? "离线回放" : "在「乐谱量化」选择音轨后即可训练。";
   } else if (!iterationStatus.textContent && !trainingRun && data.rounds.length) {
-    iterationStatus.textContent = "当前为保存的回放。点击加号可从最后一轮继续训练。";
+    iterationStatus.textContent = "当前为保存的回放。可从最后一轮继续训练。";
   }
   iterationDialog.showModal();
   syncRoundTimelines();
@@ -2592,6 +2596,11 @@ function syncRoundActions() {
     addButton.hidden = !live;
     addButton.disabled = !canAddRound;
   }
+  const canRunBatch = live && (canContinue() || sourceReady) && !trainingPending();
+  openRoundBatch.hidden = roundBatch.hidden = !live;
+  openRoundBatch.disabled = roundBatchCount.disabled = !canRunBatch;
+  roundBatchButton.disabled = !canRunBatch || !Number.isSafeInteger(roundBatchCount.valueAsNumber) ||
+    !roundBatchCount.validity.valid;
 }
 
 function syncRoundTimelines() {
@@ -2618,6 +2627,15 @@ get("open-iterations").addEventListener("click", () => {
   const latest = data.rounds.length - 1;
   if (latest >= 0 && latest !== state.round) changeRun("round", latest);
   openIterations();
+});
+openRoundBatch.addEventListener("click", () => {
+  openIterations();
+  roundBatchCount.focus();
+});
+roundBatchCount.addEventListener("input", syncRoundActions);
+roundBatch.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (!roundBatchButton.disabled) void runTraining(canContinue(), roundBatchCount.valueAsNumber);
 });
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
 iterationNext.addEventListener("click", () => changeRun("round", state.round + 1));
@@ -3067,10 +3085,12 @@ function playbackTrainingRequest(record) {
   };
 }
 
-async function runTraining(continuing = false) {
-  if (continuing ? !canContinue() : !sourceReady || !form.checkValidity()) {
+async function runTraining(continuing = false, requestedRounds) {
+  if (trainingPending()) return;
+  const field = continuing ? null : [...form.elements].find(control => !control.validity.valid &&
+    (requestedRounds === undefined || control.name !== "rounds"));
+  if (continuing ? !canContinue() : !sourceReady || field) {
     if (sourceReady) {
-      const field = [...form.elements].find(control => !control.validity.valid);
       const settings = get("iteration-settings");
       if (settings.contains(field) && iterationDialog.open) settings.open = true;
       const panelSettings = field?.closest("details.algorithm-settings");
@@ -3087,34 +3107,45 @@ async function runTraining(continuing = false) {
     ...activeSource(), track: Number(trackSelect.value), settings: settings(),
   };
   const snapshot = freshRequest?.settings;
+  if (snapshot && requestedRounds !== undefined) snapshot.rounds = 1;
   controlsState();
-  setTrainingStatus(continuing ? `正在训练第 ${data.rounds.length + 1} 轮…`
-    : `正在计算 ${snapshot.rounds} 轮训练，完成后可逐步回放。`);
+  const count = requestedRounds ?? 1;
+  function showRoundProgress(completed) {
+    const progress = count > 1 ? `（本次 ${completed + 1} / ${count} 轮）` : "";
+    const next = continuing ? data.rounds.length + 1 : completed + 1;
+    setTrainingStatus(`正在训练第 ${next} 轮${progress}…`);
+  }
   try {
-    const action = continuing ? trainingRun?.action ?? "continue-playback" : "train";
-    const request = freshRequest ?? trainingRun?.request ?? playbackTrainingRequest(data);
-    const { checkpoint, ...result } = await api(action, { ...request,
-      checkpoint: continuing ? trainingRun?.checkpoint : undefined,
-    }, controller.signal);
-    if (controller.signal.aborted) return;
-    trainingRun = { request, checkpoint, action: action === "train" ? "continue" : action };
-    if (continuing) {
-      data.rounds.push(...result.rounds);
-      data.metrics.push(...result.metrics);
+    if (freshRequest) {
+      if (requestedRounds === undefined) setTrainingStatus(`正在计算 ${snapshot.rounds} 轮训练，完成后可逐步回放。`);
+      else showRoundProgress(0);
+      const { checkpoint, ...result } = await api("train", freshRequest, controller.signal);
+      if (controller.signal.aborted) return;
+      trainingRun = { request: freshRequest, checkpoint, action: "continue" };
+      state.song = 0;
+      state.round = result.rounds.length - 1;
+      if (sourceMode.value === "local") result.songs[0].id = localSource.name;
+      inputPreview = result.songs[0].preview ?? null;
+      cancel(exampleJob);
+      setExamples(result.examples);
+      get("example-status").textContent = `样例使用本次训练的 ${snapshot.blur} × ${snapshot.blur} 模糊核、σ ${snapshot.sigma}。`;
+      updateData(result, true);
+    }
+    for (let index = continuing ? 0 : 1; index < count; index++) {
+      showRoundProgress(index);
+      const action = trainingRun?.action ?? "continue-playback";
+      const request = trainingRun?.request ?? playbackTrainingRequest(data);
+      const { checkpoint, rounds, metrics } = await api(action, {
+        ...request, checkpoint: trainingRun?.checkpoint,
+      }, controller.signal);
+      if (controller.signal.aborted) return;
+      trainingRun = { request, checkpoint, action };
+      data.rounds.push(...rounds);
+      data.metrics.push(...metrics);
       state.round = data.rounds.length - 1;
       updateData(data, true);
-      setTrainingStatus(`已完成 ${data.rounds.length} 轮训练。`);
-      return;
     }
-    state.song = 0;
-    state.round = result.rounds.length - 1;
-    if (sourceMode.value === "local") result.songs[0].id = localSource.name;
-    inputPreview = result.songs[0].preview ?? null;
-    cancel(exampleJob);
-    setExamples(result.examples);
-    get("example-status").textContent = `样例使用本次训练的 ${snapshot.blur} × ${snapshot.blur} 模糊核、σ ${snapshot.sigma}。`;
-    updateData(result, true);
-    setTrainingStatus(`已完成 ${result.rounds.length} 轮训练。`);
+    setTrainingStatus(`已完成 ${data.rounds.length} 轮训练。`);
   } catch (error) {
     if (!controller.signal.aborted) setTrainingStatus(error.message);
   } finally {

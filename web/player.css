@@ -388,7 +388,7 @@ canvas { display: block; width: 100%; }
 }
 .source-controls .control-field:has(#song, .file-input) { flex: 2 1 245px; }
 .source-controls .control-field:has(> .parameter-input) { flex: 1 1 200px; }
-.control-field > :is(select, input:not([type="checkbox"], [type="range"])), .paired-values input {
+.control-field > :is(select, input:not([type="checkbox"], [type="range"])), .paired-values input, .round-batch input {
   min-width: 0; max-width: 100%; min-height: 32px; padding: 3px 6px;
   border: 1px solid var(--line); border-radius: 5px; background: var(--surface); color: var(--ink);
   font-variant-numeric: tabular-nums;
@@ -674,6 +674,9 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
 #iteration-status:empty { display: none; }
 .iteration-navigation { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .iteration-navigation > button { white-space: nowrap; }
+.round-batch:not([hidden]) { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; font-size: .81rem; }
+.round-batch input { width: 66px; min-height: 34px; }
+.round-batch button { white-space: nowrap; }
 .playback-dialog-body { overflow: auto; overscroll-behavior: contain; padding: 14px 18px; }
 #iteration-states:not([hidden]) {
   display: grid;
