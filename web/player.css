@@ -35,6 +35,48 @@
 }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
+.algorithm {
+  margin: 16px 0 22px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  min-width: 0;
+}
+.algorithm-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+.algorithm-heading h3 { margin: 0; font-size: .92rem; font-weight: 600; }
+.algorithm-mode, .algorithm-description { color: var(--muted); font-size: .78rem; }
+.algorithm-description { margin: 4px 0 12px; }
+.algorithm-lines {
+  margin: 0; padding: 0 0 0 3ch; max-width: 105ch;
+  font: .9rem/1.95 Consolas, "SFMono-Regular", "Microsoft YaHei UI", monospace;
+  font-variant-numeric: tabular-nums;
+}
+.algorithm-line { padding-left: 10px; }
+.algorithm-line::marker { color: var(--muted); font-size: .9em; }
+.algorithm-line code { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
+.algorithm-keyword { color: var(--accent); font-weight: 700; }
+.algorithm-comment { color: var(--muted); }
+.algorithm .algorithm-input {
+  display: inline-block; width: 7.8ch; max-width: 100%; min-height: 28px;
+  margin: 2px 3px; padding: 2px 5px; vertical-align: baseline;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: var(--paper); color: var(--ink); font: inherit;
+  font-variant-numeric: tabular-nums; caret-color: var(--accent);
+}
+.algorithm .algorithm-input-wide { width: 17ch; }
+.algorithm select.algorithm-input { width: auto; max-width: 100%; }
+.algorithm .algorithm-input:hover:not(:disabled) { border-color: var(--accent); }
+.algorithm .algorithm-input[aria-invalid="true"] { outline: 2px solid var(--metric-1); }
+.algorithm .algorithm-input:disabled { opacity: 1; color: var(--muted); cursor: default; }
+.algorithm-settings { margin: 0 0 18px; }
+.algorithm-settings > summary { width: fit-content; cursor: pointer; color: var(--muted); font-size: .8rem; }
+.algorithm-settings[open] > summary { margin-bottom: 12px; }
+@media (max-width: 600px) {
+  .algorithm { padding: 12px 10px; }
+  .algorithm-lines { font-size: .85rem; line-height: 2; }
+  .algorithm-line { padding-left: 3px; }
+}
 button, input, select { font: inherit; }
 button, select, input[type="range"] { cursor: pointer; }
 button { color: inherit; }

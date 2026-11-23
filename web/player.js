@@ -2302,6 +2302,185 @@ function launchControls() {
 
 const settings = () => Object.fromEntries(new FormData(form));
 
+// Pseudocode uses mirrors, so each setting still has one canonical form control.
+const algorithmControls = [];
+const algorithms = {
+  process: ["训练流程", "输入：量化乐谱 M；输出：字典、匹配记录、重构乐谱。", `D ← 空字典(槽位数 = {{words}})
+rng ← 随机序列(种子 = {{seed}})
+for r = 1 to {{rounds}}:  # 初始训练轮数
+    if D 已满: D ← 扩容(D, 新增槽位 = {{growth}})
+    D, V ← 初始化字典(D, M, rng)
+    匹配, 重构 ← 拼图编码(M, V)
+    指标 ← 评估(M, 匹配, 重构)
+    片段集 ← 裁切并逆缩放(M, 匹配)
+    D ← 字典重学习(片段集)
+return D, 匹配, 重构, 指标`],
+  input: ["乐谱量化", "输入：所选乐谱与音轨；输出：训练矩阵 M。", `notes ← 读取乐谱(当前曲目, 当前音轨)
+TPB ← {{resolution}}  # 每拍时间格数
+notes ← 量化(notes, TPB)
+M ← 钢琴卷帘(notes, 起音 = 1, 延音 = 0.01)
+G ← 高斯核(边长 = {{blur}}, 标准差 = {{sigma}})
+return M, G  # 训练保留原谱；G 用于模板匹配与密度学习`],
+  trials: ["初始化字典", "输入：字典 D、乐谱 M；输出：通过筛选的字典与变体 V。", `候选形状 ← (音高 = {{height}} 半音, 时间 = {{width}} 格)
+基元数范围 ← [{{noteMin}}, {{noteMax}}]  # 含上下限
+时长采样范围 ← [{{durationMin}}, {{duration}}]  # 含上下限，单位：格
+V ← []
+for 槽位 in D:
+    if 槽位非空 且 最高响应 ≥ {{usefulness}}: 保留单词和变体; continue
+    清空当前槽位
+    repeat 最多 {{attempts}} 次:
+        T ← 随机采样基元(候选形状, 基元数范围, 时长采样范围)
+        T ← 起点、音高和时长分别减去各自最小值(T)
+        if 最大去重 ZNCC(T, D) > {{similarity-limit}}: continue
+        V_T ← 音高缩放变体(T, 倍率 = {{scales}})
+        if 最高匹配响应(V_T, M) ≥ {{usefulness}}:
+            D[槽位] ← T; 接纳 V_T; break
+return D, V  # 已有单词同样按所设倍率生成变体`],
+  variants: ["相似度量", "输入：单词变体 T、乐谱 M；输出：各位置的匹配响应 R。", `for T in 字典的音高缩放变体:
+    σ ← {{sigma}}  # 随机单词
+    if T 来自重学习: σ ← {{sigma:learned}}
+    B ← 高斯模糊(T, 核边长 = {{blur}}, σ)
+    Z ← sum(同尺寸高斯模糊(T) × T)
+    惩罚 ← 基元数(T) × {{notePenalty}}
+    if T 来自重学习: 惩罚 ← 惩罚 + {{learnedPenalty}}
+    R_T ← 有效互相关(M, B) / Z − 惩罚
+return R  # 编码使用此响应；下方样例可比较其他指标`],
+  similarity: ["匹配样例", "输入：样例单词、乐谱片段；输出：所选指标的响应图。", `指标 ← {{similarity-metric}}
+M_G ← 高斯模糊(乐谱片段, {{blur}}, {{sigma}})
+for 倍率 in [{{scales}}]:
+    T ← 高斯模糊(音高缩放(样例单词, 倍率))
+    R ← 滑动窗口度量(M_G, T, 指标)
+最佳匹配 ← 所有倍率与位置中的最优值(R)
+显示响应图(R, 最佳匹配)  # RMSE 取最小误差；图中映射为相似度`],
+  matches: ["拼图编码与裁切", "输入：原谱 M、变体响应 R；输出：匹配、重构与分组片段集。", `U ← copy(M); 重构 ← 0; 匹配 ← []
+while 存在可用响应图:
+    T, 位置, 分数 ← 全局最高响应(R)
+    if 分数 < {{threshold}}: break
+    U[匹配框] ← max(U[匹配框] − 模糊模板(T), 0)
+    重构[原型位置] ← 重构[原型位置] + 原始模板(T)
+    匹配 ← 追加(匹配, T, 位置)
+    R[受影响时间列] ← 归一化互相关(U, 各模糊模板) − {{repulsion}}
+for 命中 in 匹配:
+    P ← 裁切原谱(M, 命中框,
+        音高两侧扩展 = {{capturePitchMargin}} 半音, 前后扩展 = {{captureTimeMargin}} 格)
+    if P 含起音: 按命中单词分组追加(逆音高缩放(P, 命中倍率))
+return 匹配, 重构, 片段集`],
+  learning: ["字典重学习", "输入：按单词分组的片段集；输出：下一轮使用的字典 D。", `for 单词, 片段 in 片段集:
+    if count(片段) < {{minimumCaptures}}: 释放槽位; continue
+    H ← 高斯模糊(对齐补零后的片段均值, {{blur:density}}, {{sigma:density}})
+    for 已保留密度 in 密度集:
+        if 最大 ZNCC(已保留密度, H) > {{merge-limit}}:
+            合并片段并移除已保留密度
+    密度集[单词] ← 重新计算合并后的模糊均值
+D ← 空字典(保留原槽位数)
+for 单词, H in 密度集:
+    peak ← max(H); U ← H; notes ← []
+    τ ← peak × {{spawnRatio}}
+    repeat 最多 {{learnedMax}} 次:
+        p, t ← argmax(U)
+        if U[p, t] < τ 或 peak ≤ 0: break
+        d ← 起音后连续满足 0.01 × τ < U[p, t + Δt] < τ 的格数
+        notes ← 追加(notes, 基元(p, t, d))
+        U ← H − 高斯模糊(绘制全部 notes)
+    D[单词] ← 归一化原型(notes) if count(notes) ≥ {{learnedMin}} else 空
+return D`],
+  metrics: ["匹配度评估", "输入：人工标注（如有）、预测匹配与重构；输出：每轮指标。", `RMSE ← sqrt(mean((重构 − 原谱)²))
+if 没有人工标注: return RMSE
+预测框 ← 从匹配记录提取片段边界与单词类别
+IoU ← 最大权一对一配对后的平均交并比(人工标注框, 预测框)
+真实类别, 预测类别 ← 比较音符起点处的标注类别与预测单词
+ARI, 同质性, 完整性, V值 ← 聚类指标(真实类别, 预测类别)
+return IoU, ARI, 同质性, 完整性, V值, RMSE`],
+};
+
+function syncAlgorithmControls() {
+  for (const { source, input, blurKind } of algorithmControls) {
+    // Do not interrupt partial numeric input or move the text caret while typing.
+    if (document.activeElement !== input) input.value = source.value;
+    input.disabled = source.disabled;
+    input.placeholder = source.placeholder || "";
+    if (!live && data.config && ["blur", "sigma"].includes(source.name)) {
+      input.value = blurSettings(blurKind)[source.name === "blur" ? 0 : 1];
+    }
+    input.setAttribute("aria-invalid", String(!source.validity.valid));
+  }
+}
+
+function algorithmControl(reference) {
+  const [id, blurKind = "random"] = reference.split(":");
+  const source = get(id);
+  const input = source.cloneNode(true);
+  const groupLabel = source.closest(".paired-parameter")?.querySelector(".parameter-label")?.textContent;
+  const label = [groupLabel, source.labels?.[0]?.textContent.trim() || source.getAttribute("aria-label") || id].filter(Boolean).join(" · ");
+  const help = get(source.getAttribute("aria-describedby"))?.textContent || "";
+  input.removeAttribute("id");
+  input.removeAttribute("name");
+  input.removeAttribute("required");
+  input.removeAttribute("aria-describedby");
+  input.setAttribute("form", "algorithm-display");
+  input.className = "algorithm-input";
+  input.setAttribute("aria-label", label);
+  input.title = [label, help].filter(Boolean).join("：");
+  if (source.type === "text") input.classList.add("algorithm-input-wide");
+  input.addEventListener(source.tagName === "SELECT" ? "change" : "input", () => {
+    source.value = input.value;
+    source.dispatchEvent(new Event(source.tagName === "SELECT" ? "change" : "input", { bubbles: true }));
+    if (input.value !== source.value) input.value = source.value;
+    syncAlgorithmControls();
+  });
+  // Options are populated asynchronously for the example metric selector.
+  new MutationObserver(() => {
+    if (source.tagName === "SELECT") input.replaceChildren(...[...source.options].map(option => option.cloneNode(true)));
+    syncAlgorithmControls();
+  }).observe(source, { attributes: true, childList: true, subtree: true });
+  algorithmControls.push({ source, input, blurKind });
+  return input;
+}
+
+function launchAlgorithms() {
+  for (const [key, [title, description, code]] of Object.entries(algorithms)) {
+    const section = get(`stage-${key}`);
+    const algorithm = element("section", "algorithm");
+    algorithm.setAttribute("aria-label", `${title}伪代码`);
+    const header = element("div", "algorithm-heading");
+    header.append(element("h3", "", "伪代码"), element("span", "algorithm-mode", "参数与训练设置同步"));
+    const lines = element("ol", "algorithm-lines");
+    for (const text of code.split("\n")) {
+      const line = element("li", "algorithm-line");
+      const content = element("code", "");
+      const [statement, comment] = text.split("  # ");
+      for (const part of statement.split(/(\{\{[^}]+\}\})/)) {
+        if (part.startsWith("{{")) content.append(algorithmControl(part.slice(2, -2)));
+        else {
+          for (const token of part.split(/\b(for|in|to|if|else|repeat|while|return|continue|break)\b/g)) {
+            content.append(/^(for|in|to|if|else|repeat|while|return|continue|break)$/.test(token)
+              ? element("b", "algorithm-keyword", token) : document.createTextNode(token));
+          }
+        }
+      }
+      if (comment) content.append(element("span", "algorithm-comment", `  # ${comment}`));
+      line.append(content);
+      lines.append(line);
+    }
+    algorithm.append(header, element("p", "algorithm-description", description), lines);
+    const controls = panels.find(panel => panel.key === key)?.parts.controls;
+    if (controls) {
+      const groups = [...controls.querySelectorAll(":scope > .parameter-group")];
+      if (groups.length && key !== "input") {
+        const details = element("details", "algorithm-settings");
+        details.append(element("summary", "", "参数滑块与说明"), ...groups);
+        controls.prepend(details);
+      }
+      controls.prepend(algorithm);
+    } else section.querySelector(".stage-heading").after(algorithm);
+  }
+  document.addEventListener("input", event => {
+    if (event.target.matches(".parameter-input")) syncAlgorithmControls();
+  });
+  similarityMetric.addEventListener("change", syncAlgorithmControls);
+  syncAlgorithmControls();
+}
+
 function settingsFor(...keys) {
   const snapshot = settings();
   return Object.fromEntries(keys.map((key) => [key, snapshot[key]]));
@@ -2869,6 +3048,8 @@ async function runTraining(continuing = false) {
       const field = [...form.elements].find(control => !control.validity.valid);
       const settings = get("iteration-settings");
       if (settings.contains(field) && iterationDialog.open) settings.open = true;
+      const panelSettings = field?.closest("details.algorithm-settings");
+      if (panelSettings) panelSettings.open = true;
       const label = field?.labels?.[0]?.textContent;
       setTrainingStatus(label ? `请检查「${label}」的数值。` : "请补全参数或将数值调到可用范围。");
     }
@@ -2967,6 +3148,7 @@ function showRecordedParameters(record) {
 
 async function initialize() {
   launchControls();
+  launchAlgorithms();
   controlsState();
   refreshChoices(trackSelect, []);
   refreshChoices(songSelect, []);
@@ -3005,6 +3187,10 @@ async function initialize() {
     status.textContent = record ? "离线训练回放。切换原始 MIDI 和重新计算需要本地工作台。"
       : "没有可用的训练回放。请使用 npm run dev 启动本地工作台。";
     if (record) await loadInputAnnotations();
+  }
+  syncAlgorithmControls();
+  for (const mode of document.querySelectorAll(".algorithm-mode")) {
+    mode.textContent = live ? "修改参数后自动重算" : "离线记录 · 参数只读";
   }
 }
 
