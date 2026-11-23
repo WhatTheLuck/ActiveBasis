@@ -86,7 +86,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   scrollbar-width: thin; scrollbar-color: var(--mw-strong-line, #9ab6a1) transparent;
 }
 .round-step {
-  position: relative; flex: 1 0 auto; min-width: 46px; padding: 4px 7px;
+  position: relative; flex: 1 0 0; min-width: 46px; padding: 4px 7px;
   border: 0; background: transparent; color: var(--muted); text-align: center;
   font: .78rem/1.4 var(--mono);
 }
@@ -99,14 +99,14 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   content: ""; position: absolute; top: 13px; left: 0; right: 0; height: 1px; background: var(--mw-line, #a8b9ae);
 }
 .round-step:first-child::after { left: 50%; }
-.round-step:last-child::after { right: 50%; }
+.round-step:last-child::after, .round-step:has(+ .round-add[hidden])::after { right: 50%; }
 .round-step[data-reached]::before { border-color: var(--accent); background: var(--accent); }
 .round-step[aria-pressed="true"] { color: var(--accent); font-weight: 750; }
 .round-step[aria-pressed="true"]::before { outline: 2px solid var(--accent); outline-offset: 2px; }
 .round-step:not(:disabled):hover { background: var(--accent-light); }
 .round-step:focus-visible { outline-offset: -2px; }
-.round-add { flex: none; align-self: flex-start; padding-block-end: calc(4px + 1.4em); }
-.round-add::after { content: none; }
+.round-add { padding-block-end: calc(4px + 1.4em); }
+.round-empty + .round-add::after { content: none; }
 .round-add > span { display: grid; place-content: center; font: 700 9px/1 var(--mono); }
 .round-add:enabled:hover > span, .round-add:focus-visible > span { border-color: var(--accent); color: var(--accent); }
 .round-empty { padding: 7px; }

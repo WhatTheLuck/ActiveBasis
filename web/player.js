@@ -2367,9 +2367,10 @@ async function api(action, parameters, signal) {
   return payload.result;
 }
 
-const roundTimelines = [get("round"), get("iteration-steps")];
+const roundTimelines = [get("round"), get("iteration-steps")].map(strip => ({
+  strip, addButton: strip.querySelector(".round-add"),
+}));
 const iterationNext = get("iteration-next");
-const addRoundButtons = [get("top-round-add"), get("iteration-round-add")];
 
 function canContinue() {
   return live && data.rounds.length > 0;
@@ -2392,15 +2393,15 @@ function syncRoundActions() {
   get("iteration-prev").disabled = !data.rounds.length || state.round === 0;
   iterationNext.disabled = state.round + 1 >= data.rounds.length;
   const canAddRound = canContinue() && !trainingPending();
-  for (const button of addRoundButtons) {
-    button.hidden = !live;
-    button.disabled = !canAddRound;
+  for (const { addButton } of roundTimelines) {
+    addButton.hidden = !live;
+    addButton.disabled = !canAddRound;
   }
 }
 
 function syncRoundTimelines() {
   syncRoundActions();
-  for (const strip of roundTimelines) {
+  for (const { strip, addButton } of roundTimelines) {
     let selected;
     for (const item of strip.querySelectorAll("[data-round]")) {
       const index = Number(item.dataset.round);
@@ -2411,8 +2412,10 @@ function syncRoundTimelines() {
     if (!selected) continue;
     const frame = strip.getBoundingClientRect();
     const dot = selected.getBoundingClientRect();
-    if (dot.right > frame.right) strip.scrollLeft += dot.right - frame.right;
-    if (dot.left < frame.left) strip.scrollLeft += dot.left - frame.left;
+    const end = selected.nextElementSibling === addButton && !addButton.hidden
+      ? addButton.getBoundingClientRect().right : dot.right;
+    if (end > frame.right) strip.scrollLeft += end - frame.right;
+    else if (dot.left < frame.left) strip.scrollLeft += dot.left - frame.left;
   }
 }
 
@@ -2423,8 +2426,8 @@ get("open-iterations").addEventListener("click", () => {
 });
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
 iterationNext.addEventListener("click", () => changeRun("round", state.round + 1));
-for (const button of addRoundButtons) {
-  button.addEventListener("click", () => {
+for (const { addButton } of roundTimelines) {
+  addButton.addEventListener("click", () => {
     if (!canContinue() || trainingPending()) return;
     void runTraining(true);
     openIterations();
@@ -2452,9 +2455,9 @@ function updateData(record, preservePosition = false) {
     return `${label} ${stageSize}×${stageSize} / σ ${stageSigma}`;
   }).join("\n");
   const active = preservePosition ? Math.min(state.round, Math.max(0, data.rounds.length - 1)) : 0;
-  for (const strip of roundTimelines) {
-    if (strip.children.length && strip.querySelectorAll("button").length === data.rounds.length) continue;
-    const focusedRound = strip.contains(document.activeElement);
+  for (const { strip, addButton } of roundTimelines) {
+    if (strip.childElementCount > 1 && strip.querySelectorAll("[data-round]").length === data.rounds.length) continue;
+    const focusedRound = strip.contains(document.activeElement) && document.activeElement !== addButton;
     const items = document.createDocumentFragment();
     for (const index of data.rounds.keys()) {
       const item = button(String(index + 1), "round-step");
@@ -2468,8 +2471,8 @@ function updateData(record, preservePosition = false) {
       items.append(item);
     }
     if (!data.rounds.length) items.append(element("span", "round-empty", "未训练"));
-    strip.replaceChildren(items);
-    if (focusedRound) strip.querySelectorAll("button")[active]?.focus({ preventScroll: true });
+    strip.replaceChildren(items, addButton);
+    if (focusedRound) strip.querySelectorAll("[data-round]")[active]?.focus({ preventScroll: true });
   }
   provenance.textContent = data.songs.length
     ? `当前记录 · ${data.songs[state.song]?.id ?? data.songs[0].id} · 音轨 ${data.track} · 种子 ${data.seed}` : "暂无训练记录";
