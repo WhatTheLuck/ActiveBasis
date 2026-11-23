@@ -1732,6 +1732,17 @@ function createPanel([key, title, description]) {
 const panels = stages.map(createPanel);
 const topbar = document.querySelector(".topbar");
 const mobileStage = get("stage-select").closest("label");
+const stageToggle = get("stage-toggle");
+const stageNav = get("stages");
+stageToggle.addEventListener("click", () => {
+  const expanded = stageNav.hidden;
+  const label = expanded ? "收起训练流程" : "展开训练流程";
+  stageNav.hidden = !expanded;
+  stageToggle.setAttribute("aria-expanded", String(expanded));
+  stageToggle.setAttribute("aria-label", label);
+  stageToggle.title = label;
+  onScroll();
+});
 
 function syncLocation() {
   const boundary = Math.max(topbar.getBoundingClientRect().bottom, mobileStage.getBoundingClientRect().bottom);
@@ -1744,7 +1755,7 @@ function syncLocation() {
   state.activeStage = atBottom ? panels.length - 1 : active;
   const { key, section } = panels[state.activeStage];
   get("stage-select").value = key;
-  for (const link of get("stages").children) {
+  for (const link of stageNav.children) {
     if (link.hash === `#${section.id}`) link.setAttribute("aria-current", "location");
     else link.removeAttribute("aria-current");
   }
