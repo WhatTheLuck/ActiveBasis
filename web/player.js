@@ -502,6 +502,15 @@ function annotationIndex() {
   });
 }
 
+async function trackAnnotations(song, track, signal) {
+  if (location.protocol === "file:") return embeddedAnnotations[song] ?? null;
+  if (!/^\d{3}$/.test(song ?? "")) return null;
+  const songs = await annotationIndex();
+  if (signal?.aborted) return null;
+  const entry = songs.find((item) => item.id === song)?.tracks.find((item) => item.id + 1 === track);
+  return entry ? fetchAnnotations(entry.key, signal) : null;
+}
+
 function groupedAnnotations(version) {
   if (annotationGroups.has(version)) return annotationGroups.get(version);
   const colors = new Map();
@@ -918,13 +927,13 @@ function captureHistogram(view, round, panel) {
   }
 }
 
-function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
+function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor = templateName }) {
   const grid = element("div", "capture-grid");
   grid.style.setProperty("--capture-columns", columns);
   let maxRows = 1;
   for (const [word, captures] of groups) {
     maxRows = Math.max(maxRows, Math.ceil(captures.length / columns));
-    const name = templateName(word);
+    const name = nameFor(word);
     const column = element("section", "capture-bin");
     const summary = element("h4", "capture-bin-label");
     const label = inspect && captures.length ? button("", "capture-bin-trigger") : summary;
@@ -933,7 +942,8 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     const original = dictionary[word];
     if (original) {
       const title = `${name} 原体`;
-      const thumbnail = plot(title, matrix(original), { height: 18 });
+      const thumbnail = plot(title, Array.isArray(original) ? matrix(original) : original,
+        { height: 18 });
       thumbnail.classList.add("capture-bin-original");
       thumbnail.title = title;
       label.append(thumbnail);
@@ -941,7 +951,7 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     label.append(element("span", "capture-bin-count", String(captures.length)));
     if (label !== summary) {
       label.setAttribute("aria-expanded", "false");
-      label.setAttribute("aria-label", `${name} 的 ${captures.length} 个裁切块`);
+      label.setAttribute("aria-label", `${name} 的 ${captures.length} 个片段`);
       label.addEventListener("click", () => inspect(word, captures, label));
       summary.append(label);
     }
@@ -949,10 +959,11 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     stack.reversed = true;
     for (let index = captures.length - 1; index >= 0; index--) {
       const capture = captures[index];
-      const item = element("li", capture.match === latest ? "capture-added" : "");
-      const label = `${name} 第 ${index + 1} 个裁切片段，匹配步骤 ${capture.match + 1}`;
+      const { crop, match } = capture;
+      const item = element("li", match != null && match === latest ? "capture-added" : "");
+      const label = `${name} 第 ${index + 1} 个片段${match == null ? "" : `，匹配步骤 ${match + 1}`}`;
       item.title = label;
-      item.append(plot(label, matrix(capture.crop)));
+      item.append(plot(label, Array.isArray(crop) ? matrix(crop) : crop));
       stack.append(item);
     }
     column.append(stack, summary);
@@ -1396,42 +1407,78 @@ function iterationState(round, index, song, wordDomain) {
     words.append(figure(templateName(word), packet, { height: 64, wordDomain }));
   });
   dictionary.append(element("p", "iteration-caption", learned ? "重学习后 · 原体" : "编码时 · 原体"), words);
-  column.append(score, iterationCaptures(round, index), dictionary);
+  const groups = [...capturesByWord(round).entries()].sort((a, b) => b[1].length - a[1].length);
+  const histogram = iterationHistogram(groups, round.dictionary, {
+    title: "片段直方图", detailId: `iteration-capture-detail-${index + 1}`, scope: "全部曲目",
+  });
+  column.append(score, dictionary, histogram);
   return column;
 }
 
-function iterationAnnotations(song) {
+function iterationAnnotations(song, packet) {
   const column = element("article", "iteration-state");
   column.append(element("h3", "", "标注结果"));
   const section = element("section", "iteration-score-section");
   section.append(element("h4", "subheading", "原始乐谱"));
-  const annotations = (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
+  const instances = annotationItems(packet);
+  const raw = matrix(song.roll);
+  const axes = songAxes(song);
+  const annotations = instances.length ? annotationOverlays(instances, packet.resolution, {
+    resolution: beatResolution(), tickOrigin: axes.tickOffset, pitchOrigin: song.pitchOrigin,
+  }, raw) : (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
   const score = element("div", "iteration-score");
   score.append(
     element("p", "iteration-caption", annotations.length ? `${annotations.length} 个标注框` : "无标注"),
-    plot("原始乐谱及标注方框", matrix(song.roll), { ...songAxes(song), height: 128, boxes: annotations }),
+    plot("原始乐谱及标注方框", raw, { ...axes, height: 128, boxes: annotations }),
   );
   section.append(score);
   column.append(section);
+  if (!instances.length) return column;
+
+  const byCategory = new Map();
+  for (const instance of instances) {
+    if (!byCategory.has(instance.group)) byCategory.set(instance.group, { color: instance.color, fragments: [] });
+    byCategory.get(instance.group).fragments.push({ crop: annotationThumbnail(instance, packet.resolution) });
+  }
+  const categories = [...byCategory.entries()].sort((a, b) => b[1].fragments.length - a[1].fragments.length);
+  const nameFor = (index) => `类别 ${categories[index][0]}`;
+  const originals = categories.map(([, { fragments }]) => fragments[0].crop);
+  const dictionary = element("section", "iteration-dictionary");
+  dictionary.append(element("h4", "subheading", "标注字典"), element("p", "iteration-caption", "每类显示首个标注片段"));
+  const words = element("div", "iteration-words");
+  originals.forEach((original, index) => {
+    const item = figure(nameFor(index), original, { height: 64 });
+    const swatch = element("span", "annotation-swatch");
+    swatch.style.backgroundColor = categories[index][1].color;
+    item.querySelector("figcaption").prepend(swatch);
+    words.append(item);
+  });
+  dictionary.append(words);
+  const groups = categories.map(([, { fragments }], index) => [index, fragments]);
+  const histogram = iterationHistogram(groups, originals, {
+    title: "标注片段直方图", detailId: "iteration-annotation-fragments", nameFor,
+    groupColors: categories.map(([, { color }]) => color),
+  });
+  column.append(dictionary, histogram);
   return column;
 }
 
-function iterationCaptures(round, index) {
+function iterationHistogram(groups, dictionary, { title, detailId, scope, nameFor = templateName, groupColors }) {
   const section = element("section", "iteration-capture-section");
-  section.append(element("h4", "subheading", "裁切数据集"));
-  if (!round.captures.length) {
-    section.append(element("p", "iteration-caption", "本轮没有裁切块"));
+  section.append(element("h4", "subheading", title));
+  const total = groups.reduce((sum, [, fragments]) => sum + fragments.length, 0);
+  if (!total) {
+    section.append(element("p", "iteration-caption", "暂无片段"));
     return section;
   }
   const stack = element("div", "iteration-captures");
   stack.tabIndex = 0;
   stack.setAttribute("role", "region");
-  stack.setAttribute("aria-label", `第 ${index + 1} 轮裁切块堆叠`);
+  stack.setAttribute("aria-label", title);
   const detail = element("div", "iteration-capture-detail");
-  detail.id = `iteration-capture-detail-${index + 1}`;
+  detail.id = detailId;
   detail.hidden = true;
   let selected;
-  const groups = [...capturesByWord(round).entries()].sort((a, b) => b[1].length - a[1].length);
   const inspect = (word, captures, trigger) => {
     clearPlots(detail);
     selected?.setAttribute("aria-expanded", "false");
@@ -1443,7 +1490,7 @@ function iterationCaptures(round, index) {
     selected = trigger;
     selected.setAttribute("aria-expanded", "true");
     detail.hidden = false;
-    const title = element("h5", "subheading", `${templateName(word)} · ${captures.length} 个裁切块`);
+    const title = element("h5", "subheading", `${nameFor(word)} · ${captures.length} 个片段`);
     const gallery = element("div", "iteration-capture-gallery");
     gallery.tabIndex = 0;
     gallery.setAttribute("role", "region");
@@ -1454,11 +1501,18 @@ function iterationCaptures(round, index) {
     detail.append(title, gallery);
     watchPlots(detail);
   };
-  stack.append(captureBins(groups, round.dictionary, { inspect }));
+  const grid = captureBins(groups, dictionary, { inspect, nameFor });
+  if (groupColors) {
+    for (const [index, bin] of [...grid.children].entries()) {
+      bin.classList.add("annotation-capture-bin");
+      bin.style.setProperty("--annotation-color", groupColors[index]);
+    }
+  }
+  stack.append(grid);
   for (const trigger of stack.querySelectorAll(".capture-bin-trigger")) {
     trigger.setAttribute("aria-controls", detail.id);
   }
-  section.append(element("p", "iteration-caption", `全部曲目 · ${round.captures.length} 块 · 点击单词查看裁切块`),
+  section.append(element("p", "iteration-caption", `${scope ? `${scope} · ` : ""}${total} 个片段 · 点击分组查看`),
     stack, detail);
   return section;
 }
@@ -1466,9 +1520,25 @@ function iterationCaptures(round, index) {
 const iterationDialog = get("iteration-dialog");
 const iterationStates = get("iteration-states");
 const iterationTrend = get("iteration-trend");
-let comparedRecord, comparedSong;
+let comparedRecord, comparedSong, comparedAnnotationPacket;
+const iterationAnnotationPackets = new WeakMap();
 let iterationWordDomain = [1, 1];
 let measuredRounds = 0;
+
+function iterationAnnotationPacket(song) {
+  if (sourceMode.value === "local" && localSource && localSource === sharedSource && song.id === localSource.name) {
+    return inputAnnotations;
+  }
+  if (!iterationAnnotationPackets.has(song)) {
+    iterationAnnotationPackets.set(song, null);
+    trackAnnotations(song.id, data.track).then((packet) => {
+      if (!packet) return;
+      iterationAnnotationPackets.set(song, packet);
+      if (currentSong() === song) refreshIterations();
+    }).catch(() => {});
+  }
+  return iterationAnnotationPackets.get(song);
+}
 
 function refreshIterations() {
   if (!iterationDialog.open) return;
@@ -1490,13 +1560,26 @@ function refreshIterations() {
   if (previousTicks !== iterationWordDomain[0] || previousPitches !== iterationWordDomain[1]) {
     for (const canvas of iterationStates.querySelectorAll(".iteration-words canvas")) plotDrawers.get(canvas)();
   }
-  const count = song ? data.rounds.length : 0;
+  const count = song ? Math.min(state.round + 1, data.rounds.length) : 0;
   iterationStates.hidden = !count;
   let annotations = iterationStates.lastElementChild;
-  if (count && !annotations) {
-    annotations = iterationAnnotations(song);
-    iterationStates.append(annotations);
+  const packet = count ? iterationAnnotationPacket(song) : null;
+  if (count && (!annotations || packet !== comparedAnnotationPacket)) {
+    const column = iterationAnnotations(song, packet);
+    if (annotations) {
+      clearPlots(annotations);
+      annotations.replaceWith(column);
+    } else iterationStates.append(column);
+    annotations = column;
+    comparedAnnotationPacket = packet;
     watchPlots(annotations);
+    const stack = annotations.querySelector(".iteration-captures");
+    if (stack) stack.scrollTop = stack.scrollHeight;
+  }
+  while (iterationStates.childElementCount > count + 1) {
+    const lastRound = annotations.previousElementSibling;
+    clearPlots(lastRound);
+    lastRound.remove();
   }
   const renderedRounds = Math.max(0, iterationStates.childElementCount - 1);
   for (let index = renderedRounds; index < count; index++) {
@@ -2313,8 +2396,8 @@ function updateData(record, preservePosition = false) {
   changeRun("round", active, preservePosition);
 }
 
-function inputAnnotationItems() {
-  const versions = inputAnnotations?.versions;
+function annotationItems(packet) {
+  const versions = packet?.versions;
   const version = versions?.dictionary?.instances?.length ? versions.dictionary : versions?.csv;
   if (!version) return [];
   return groupedAnnotations(version).instances;
@@ -2322,7 +2405,13 @@ function inputAnnotationItems() {
 
 function inputAnnotationOverlay(preview, raw) {
   if (!inputAnnotations) return null;
-  const ratio = preview.resolution / inputAnnotations.resolution;
+  const instances = annotationItems(inputAnnotations)
+    .filter(({ group }) => !activeAnnotationGroup || group === activeAnnotationGroup);
+  return annotationOverlays(instances, inputAnnotations.resolution, preview, raw);
+}
+
+function annotationOverlays(instances, resolution, preview, raw) {
+  const ratio = preview.resolution / resolution;
   function quantize(tick) {
     const grid = tick * ratio;
     const left = Math.floor(grid);
@@ -2333,8 +2422,7 @@ function inputAnnotationOverlay(preview, raw) {
     const right = Math.max(left + 1, quantize(end) - preview.tickOrigin);
     return [left, low - preview.pitchOrigin, right, high - preview.pitchOrigin];
   }
-  return inputAnnotationItems()
-    .filter(({ group }) => !activeAnnotationGroup || group === activeAnnotationGroup)
+  return instances
     .map((item) => ({ box: box(item.start, item.end, item.low, item.high), color: item.color }))
     .filter(({ box: [left, low, right, high] }) =>
       right > 0 && left < raw.width && high > 0 && low < raw.height);
@@ -2358,7 +2446,7 @@ function annotationThumbnail({ notes, low, high, start, end }, resolution) {
 
 function showInputAnnotationGroups() {
   const representatives = new Map();
-  for (const item of inputAnnotationItems()) {
+  for (const item of annotationItems(inputAnnotations)) {
     if (!representatives.has(item.group)) representatives.set(item.group, item);
   }
   const options = [...representatives.values()].sort((a, b) =>
@@ -2470,25 +2558,17 @@ async function loadInputAnnotations() {
     inputAnnotations = { resolution: sharedReference.document.timing.sourcePpq, versions: { dictionary: { instances } } };
     showInputAnnotationGroups();
     updateSharedScore();
+    refreshIterations();
     return;
   }
   if (sourceMode.value !== "pop") return;
   const song = live ? songSelect.value : currentSong()?.id;
   const track = live ? Number(trackSelect.value) : data.track;
-  if (location.protocol === "file:") {
-    inputAnnotations = embeddedAnnotations[song] ?? null;
-    if (inputAnnotations) showInputAnnotationGroups();
-    return;
-  }
   const controller = new AbortController();
   inputAnnotationRequest = controller;
   try {
-    const songs = await annotationIndex();
-    if (controller.signal.aborted) return;
-    const entry = songs.find((item) => item.id === song)?.tracks.find((item) => item.id + 1 === track);
-    if (!entry) return;
-    const result = await fetchAnnotations(entry.key, controller.signal);
-    if (controller.signal.aborted) return;
+    const result = await trackAnnotations(song, track, controller.signal);
+    if (controller.signal.aborted || !result) return;
     inputAnnotations = result;
     showInputAnnotationGroups();
   } catch {

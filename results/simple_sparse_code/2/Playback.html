@@ -6,25 +6,39 @@
   <meta name="theme-color" content="#f7f5ef">
   <title>ActiveBasis</title>
   <style>:root {
-  color-scheme: light;
-  --paper: #f7f5ef;
-  --surface: #fffdf8;
-  --ink: #212a25;
-  --muted: #525c55;
-  --line: #dadbd0;
-  --accent: #215c48;
-  --accent-light: #e4eee6;
-  --chart: #142722;
-  --chart-muted: #b0c8bf;
+  color-scheme: var(--mw-scheme, light);
+  --paper: var(--mw-paper, #f7f5ef);
+  --surface: var(--mw-surface, #fffdf8);
+  --ink: var(--mw-ink, #212a25);
+  --muted: var(--mw-muted, #525c55);
+  --line: var(--mw-line, #dadbd0);
+  --accent: var(--mw-accent, #215c48);
+  --accent-light: var(--mw-accent-soft, #e4eee6);
+  --chart: var(--mw-chart, #142722);
+  --chart-muted: var(--mw-chart-muted, #b0c8bf);
   --match: #f79c78;
   --capture: #f2d38a;
   --note: #9ce3bf;
+  --metric-0: #215c48;
+  --metric-1: #a44621;
+  --metric-2: #4556a5;
+  --metric-3: #855287;
+  --metric-4: #335f81;
+  --metric-5: #272b27;
   --mono: Consolas, "SFMono-Regular", monospace;
   --topbar-height: 73px;
   --scroll-offset: calc(var(--topbar-height) + 20px);
-  font: 15px/1.55 "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  font: 15px/1.55 var(--mw-font, "Segoe UI", "Microsoft YaHei UI", sans-serif);
   background: var(--paper);
   color: var(--ink);
+}
+:root[data-theme="dark"] {
+  --metric-0: #86d5b3;
+  --metric-1: #f8ad87;
+  --metric-2: #aebcff;
+  --metric-3: #e3aee7;
+  --metric-4: #90c8e9;
+  --metric-5: #e6e3d8;
 }
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; }
@@ -34,14 +48,14 @@ button { color: inherit; }
 button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 3px;
 }
-::selection { background: #bbe0c8; color: var(--ink); }
+::selection { background: var(--mw-accent-soft, #bbe0c8); color: var(--ink); }
 .topbar {
   position: sticky; top: 0; z-index: 3;
   background: var(--surface); border-bottom: 1px solid var(--line);
 }
 .topbar-inner {
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
-  max-width: 1480px; min-height: 73px; margin: 0 auto; padding: 12px 34px;
+  min-height: 73px; padding: 12px 16px;
 }
 .brand { display: flex; align-items: center; gap: 11px; }
 .brand strong { font-size: 1.42rem; letter-spacing: -.035em; }
@@ -49,7 +63,7 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
   display: flex; align-items: center; justify-content: center; gap: 2px;
   width: 34px; height: 34px; background: var(--accent); border-radius: 8px;
 }
-.brand-mark i { display: block; width: 3px; height: 10px; background: var(--note); border-radius: 1px; }
+.brand-mark i { display: block; width: 3px; height: 10px; background: var(--mw-on-accent, var(--note)); border-radius: 1px; }
 .brand-mark i:nth-child(2) { height: 18px; }
 .brand-mark i:nth-child(3) { height: 14px; }
 .brand-mark i:nth-child(4) { height: 7px; }
@@ -76,46 +90,64 @@ button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible
 #blur-record-note { color: var(--muted); font-size: .72rem; white-space: nowrap; }
 .round-steps {
   display: flex; flex: 1; min-width: 0; overflow-x: auto;
-  scrollbar-width: thin; scrollbar-color: #9ab6a1 transparent;
+  scrollbar-width: thin; scrollbar-color: var(--mw-strong-line, #9ab6a1) transparent;
 }
 .round-step {
   position: relative; flex: 1 0 auto; min-width: 46px; padding: 4px 7px;
   border: 0; background: transparent; color: var(--muted); text-align: center;
   font: .78rem/1.4 var(--mono);
 }
-.round-step::before {
-  content: ""; position: relative; z-index: 1; display: block; width: 10px; height: 10px;
-  margin: 5px auto 3px; border-radius: 50%; border: 1px solid #6d887a; background: var(--surface);
+.round-step::before, .round-add > span {
+  position: relative; z-index: 1; display: block; width: 10px; height: 10px;
+  margin: 5px auto 3px; border-radius: 50%; border: 1px solid var(--mw-strong-line, #6d887a); background: var(--surface);
 }
+.round-step:not(.round-add)::before { content: ""; }
 .round-step::after {
-  content: ""; position: absolute; top: 13px; left: 0; right: 0; height: 1px; background: #a8b9ae;
+  content: ""; position: absolute; top: 13px; left: 0; right: 0; height: 1px; background: var(--mw-line, #a8b9ae);
 }
 .round-step:first-child::after { left: 50%; }
 .round-step:last-child::after { right: 50%; }
 .round-step[data-reached]::before { border-color: var(--accent); background: var(--accent); }
 .round-step[aria-pressed="true"] { color: var(--accent); font-weight: 750; }
 .round-step[aria-pressed="true"]::before { outline: 2px solid var(--accent); outline-offset: 2px; }
-.round-step:hover { background: var(--accent-light); }
+.round-step:not(:disabled):hover { background: var(--accent-light); }
 .round-step:focus-visible { outline-offset: -2px; }
+.round-add { flex: none; align-self: flex-start; padding-block-end: calc(4px + 1.4em); }
+.round-add::after { content: none; }
+.round-add > span { display: grid; place-content: center; font: 700 9px/1 var(--mono); }
+.round-add:enabled:hover > span, .round-add:focus-visible > span { border-color: var(--accent); color: var(--accent); }
 .round-empty { padding: 7px; }
 .iteration-header-actions, .train-actions {
   display: flex; align-items: center; gap: 6px; white-space: nowrap;
 }
 .train-actions[hidden] { display: none; }
 select {
-  min-height: 38px; border-radius: 7px; padding: 3px 8px;
+  min-height: 38px; border-radius: var(--mw-radius, 7px); padding: 3px 8px;
   color: var(--ink); border: 1px solid var(--line); background: var(--surface);
 }
 .layout {
   display: grid; grid-template-columns: max-content minmax(0, 1fr);
-  gap: 12px; max-width: 1480px; padding: 0 34px 44px; margin: 0 auto;
+  gap: 12px; padding: 0 16px 44px;
 }
 .sidebar {
   position: sticky; top: var(--topbar-height); align-self: start;
   padding: 22px 6px 12px 0; border-right: 1px solid var(--line);
   max-height: calc(100dvh - var(--topbar-height)); overflow: auto;
 }
+.stage-toggle {
+  display: grid; place-items: center; flex: none; width: 32px; height: 32px;
+  padding: 0; border: 1px solid var(--line); border-radius: 5px;
+  background: var(--surface); color: var(--muted);
+}
+.stage-toggle:hover { background: var(--accent-light); }
+.stage-toggle:focus-visible { outline-offset: -3px; }
+.stage-toggle::before {
+  content: ""; width: 8px; height: 8px; border: solid currentColor; border-width: 0 0 2px 2px;
+  transform: translateX(2px) rotate(45deg);
+}
+.stage-toggle[aria-expanded="false"]::before { transform: translateX(-2px) rotate(225deg); }
 #stages { display: grid; }
+#stages[hidden] { display: none; }
 .mobile-stage { display: none; }
 .stage-button {
   position: relative; display: grid; grid-template-columns: 7px minmax(0, 1fr);
@@ -125,17 +157,17 @@ select {
 }
 .stage-button::before {
   content: ""; z-index: 1; width: 7px; height: 7px;
-  border: 1px solid #6d887a; border-radius: 50%; background: var(--paper);
+  border: 1px solid var(--mw-strong-line, #6d887a); border-radius: 50%; background: var(--paper);
 }
 .stage-button::after {
-  content: ""; position: absolute; inset: 0 auto 0 7px; width: 1px; background: #a8b9ae;
+  content: ""; position: absolute; inset: 0 auto 0 7px; width: 1px; background: var(--mw-line, #a8b9ae);
 }
 .stage-button:first-child::after { top: 50%; }
 .stage-button:last-child::after { bottom: 50%; }
 .stage-label { white-space: nowrap; }
-.stage-button:hover { background: #eeeee5; }
+.stage-button:hover { background: var(--mw-raised, #eeeee5); }
 .stage-button:focus-visible { outline-offset: -2px; }
-.stage-button[aria-current="location"] { background: var(--accent-light); color: #174933; font-weight: 650; }
+.stage-button[aria-current="location"] { background: var(--accent-light); color: var(--mw-accent, #174933); font-weight: 650; }
 .stage-button[aria-current="location"]::before { border-color: var(--accent); background: var(--accent); }
 main { min-width: 0; padding-top: 22px; }
 .playback-stage { scroll-margin-top: var(--scroll-offset); }
@@ -160,25 +192,25 @@ main { min-width: 0; padding-top: 22px; }
   border: 1px solid transparent; background: transparent; border-radius: 6px;
 }
 .icon-button:hover, .text-button:hover { background: var(--accent-light); }
-.play-button { background: var(--accent); color: white; }
-.play-button:hover { background: #174836; }
+.play-button { background: var(--accent); color: var(--mw-on-accent, white); }
+.play-button:hover { background: var(--mw-accent-hover, #174836); }
 button:disabled, input:disabled { opacity: .42; cursor: default; }
 input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
 .scrub { flex: 1 1 auto; min-width: 26px; }
 .position { margin-inline-start: auto; font: .83rem var(--mono); color: var(--muted); }
 .speed select { font: .8rem var(--mono); min-height: 32px; }
-.plot-section { padding: 14px 16px; background: var(--chart); color: #f0f6f0; border-radius: 12px; }
+.plot-section { padding: 14px 16px; background: var(--chart); color: var(--mw-chart-ink, #f0f6f0); border-radius: 12px; }
 .plot-toolbar, .legend, .details-bar { display: flex; align-items: center; gap: 13px; flex-wrap: wrap; }
 .plot-toolbar { justify-content: space-between; margin-bottom: 6px; }
 .plot-toolbar h3, .subheading { font-size: 1rem; margin: 0; font-weight: 650; }
 .legend { color: var(--chart-muted); font-size: .75rem; }
 .legend span { white-space: nowrap; }
 .swatch { display: inline-block; width: 11px; height: 6px; margin-right: 5px; vertical-align: 1px; background: var(--note); }
-.swatch.sustain { background: color-mix(in srgb, var(--note) 11%, var(--chart)); outline: 1px solid #658377; }
+.swatch.sustain { background: color-mix(in srgb, var(--note) 11%, var(--chart)); outline: 1px solid var(--mw-chart-grid-strong, #658377); }
 .swatch.match { background: transparent; border: 1px solid var(--match); }
 .swatch.capture { background: transparent; border: 1px dashed var(--capture); }
 .plot-row { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 10px; align-items: center; }
-.plot-row + .plot-row { border-top: 1px solid #30433c; padding-top: 4px; margin-top: 3px; }
+.plot-row + .plot-row { border-top: 1px solid var(--mw-chart-grid, #30433c); padding-top: 4px; margin-top: 3px; }
 .plot-label { font-size: .79rem; color: var(--chart-muted); }
 .trial-time-axis { margin: 4px 0 0; text-align: center; color: var(--chart-muted); font-size: .75rem; }
 .trial-decision { display: inline-flex; align-items: center; gap: 4px; margin-inline-start: 10px; font-size: .82rem; font-weight: 500; }
@@ -187,7 +219,7 @@ input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
 .trial-mark.rejected { color: var(--match); }
 .trial-comparisons { padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
 .trial-comparisons .helper { margin-bottom: 0; }
-.trial-graph { --connection: #728b7d; display: grid; grid-template-columns: minmax(70px, 28%) minmax(0, 1fr); align-items: center; gap: 16px; max-width: 511px; margin-top: 6px; }
+.trial-graph { --connection: var(--mw-strong-line, #728b7d); display: grid; grid-template-columns: minmax(70px, 28%) minmax(0, 1fr); align-items: center; gap: 16px; max-width: 511px; margin-top: 6px; }
 .trial-graph-source { position: relative; }
 .trial-graph-source::after { content: ""; position: absolute; top: 50%; left: 100%; width: 16px; border-top: 1px solid var(--connection); }
 .trial-graph-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(60px, 40%); align-items: center; padding-block: 4px; }
@@ -196,7 +228,7 @@ input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
 .trial-graph-row:last-child::before { bottom: 50%; }
 .trial-graph-link { background: linear-gradient(var(--connection), var(--connection)) center / 100% 1px no-repeat; text-align: center; font: .75rem var(--mono); }
 .trial-graph-link span { display: inline-block; padding: 0 4px; background: var(--surface); overflow-wrap: anywhere; }
-.exceeds-limit .trial-graph-link { --connection: #a04b2e; color: #8a3b23; font-weight: 700; }
+.exceeds-limit .trial-graph-link { --connection: var(--mw-warm, #a04b2e); color: var(--mw-warm, #8a3b23); font-weight: 700; }
 canvas { display: block; width: 100%; }
 .figure { margin: 0; min-width: 0; }
 .figure .figure-caption { color: var(--muted); margin: 6px 1px 0; font-size: .8rem; }
@@ -238,8 +270,8 @@ canvas { display: block; width: 100%; }
 .stage-status { padding: 10px 13px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); font-size: .87rem; margin: 10px 0 16px; }
 .subheading { margin-top: 15px; }
 .helper { color: var(--muted); font-size: .81rem; margin: 5px 0 13px; }
-.callout { background: var(--accent-light); color: #194b37; }
-.overview { margin-bottom: 10px; padding: 5px 10px 2px; border-radius: 7px; background: var(--chart); }
+.callout { background: var(--accent-light); color: var(--mw-accent, #194b37); }
+.overview { margin-bottom: 10px; padding: 5px 10px 2px; border-radius: var(--mw-radius, 7px); background: var(--chart); }
 .overview-track { position: relative; cursor: crosshair; touch-action: pan-y; }
 .overview-track:focus-visible { outline: 2px solid var(--note); outline-offset: 2px; }
 .overview-marker {
@@ -304,7 +336,7 @@ canvas { display: block; width: 100%; }
 .range-pair::before {
   content: ""; position: absolute; inset: calc(50% - 2px) 7px auto; height: 4px;
   border-radius: 2px;
-  background: linear-gradient(to right, #a8b9ae var(--range-low), var(--accent) var(--range-low) var(--range-high), #a8b9ae var(--range-high));
+  background: linear-gradient(to right, var(--mw-line, #a8b9ae) var(--range-low), var(--accent) var(--range-low) var(--range-high), var(--mw-line, #a8b9ae) var(--range-high));
 }
 .range-pair input {
   appearance: none; position: absolute; inset: 0; width: 100%; height: 100%;
@@ -340,14 +372,14 @@ canvas { display: block; width: 100%; }
 .control-field > .parameter-input[name="seed"], .control-field > input.scale-input { width: 118px; }
 .control-field > input.file-input { width: 100%; }
 .control-field > input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; margin: 10px 0; }
-.control-field > input:disabled, select:disabled { color: var(--muted); background: #eeeee5; cursor: default; }
+.control-field > input:disabled, select:disabled { color: var(--muted); background: var(--mw-raised, #eeeee5); cursor: default; }
 .action-button {
   padding: 7px 12px; min-height: 38px; background: var(--surface); font-size: .83rem;
-  border: 1px solid var(--line); border-radius: 7px;
+  border: 1px solid var(--line); border-radius: var(--mw-radius, 7px);
 }
-.action-button:not(:disabled):hover, .variant-choice:not(:disabled):hover { border-color: #9ab6a1; background: var(--accent-light); }
-.action-button.primary { background: var(--accent); color: white; border-color: var(--accent); }
-.action-button.primary:not(:disabled):hover { background: #174836; }
+.action-button:not(:disabled):hover, .variant-choice:not(:disabled):hover { border-color: var(--mw-strong-line, #9ab6a1); background: var(--accent-light); }
+.action-button.primary { background: var(--accent); color: var(--mw-on-accent, white); border-color: var(--accent); }
+.action-button.primary:not(:disabled):hover { background: var(--mw-accent-hover, #174836); }
 .live-status { margin-block: 0; }
 .run-info { margin-block: 0 8px; overflow-wrap: anywhere; }
 #stage-variants [data-part="controls"]:not(:empty),
@@ -410,14 +442,14 @@ canvas { display: block; width: 100%; }
 .encoding-dictionary .helper { margin: 0; }
 .encoding-dictionary-list {
   display: flex; gap: 5px; min-width: 0; overflow-x: auto; margin: 0; padding: 0;
-  list-style: none; scrollbar-width: thin; scrollbar-color: #9ab6a1 var(--surface);
+  list-style: none; scrollbar-width: thin; scrollbar-color: var(--mw-strong-line, #9ab6a1) var(--surface);
 }
 .encoding-dictionary-word {
   display: flex; flex: none; align-items: center; gap: 5px; padding: 2px 5px 2px 3px;
   border: 1px solid var(--line); border-radius: 4px; font: .76rem var(--mono);
 }
 .encoding-dictionary-word canvas { width: 42px; background: var(--chart); border-radius: 2px; }
-.encoding-dictionary-word[aria-current="true"] { border-color: #b6613e; background: #fae7da; color: #733b23; font-weight: 700; }
+.encoding-dictionary-word[aria-current="true"] { border-color: var(--mw-warm, #b6613e); background: var(--mw-warm-soft, #fae7da); color: var(--mw-warm, #733b23); font-weight: 700; }
 .encoding-dashboard {
   --encoding-plot-height: clamp(53px, calc((100dvh - var(--topbar-height) - 243px) / 4), 108px);
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(315px, 30%);
@@ -465,7 +497,7 @@ canvas { display: block; width: 100%; }
 .ranking-panel h3, .capture-panel h3 { margin: 0; font-size: .88rem; }
 .ranking-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 5px; }
 .ranking-scale { color: var(--muted); font: .68rem var(--mono); }
-.ranking, .capture-panel-body { min-height: 0; overflow: auto; scrollbar-color: #9ab6a1 var(--surface); }
+.ranking, .capture-panel-body { min-height: 0; overflow: auto; scrollbar-color: var(--mw-strong-line, #9ab6a1) var(--surface); }
 .ranking { margin: 3px 0 0; padding-inline-start: 3ch; font-size: .74rem; }
 .ranking li { padding: 1px 3px; border-bottom: 1px solid var(--line); }
 .ranking li::marker { font-variant-numeric: tabular-nums; }
@@ -477,11 +509,11 @@ canvas { display: block; width: 100%; }
 .ranking-thumbnail canvas { max-height: 16px; }
 .ranking-name { overflow-wrap: anywhere; }
 .ranking-score { font-variant-numeric: tabular-nums; }
-.ranking-bar { position: relative; height: 4px; overflow: hidden; border-radius: 3px; background: #dfe6de; }
-.ranking-bar::after { content: ""; position: absolute; left: var(--ranking-zero); inset-block: 0; border-left: 1px solid #46554d; }
+.ranking-bar { position: relative; height: 4px; overflow: hidden; border-radius: 3px; background: var(--mw-raised, #dfe6de); }
+.ranking-bar::after { content: ""; position: absolute; left: var(--ranking-zero); inset-block: 0; border-left: 1px solid var(--mw-strong-line, #46554d); }
 .ranking-bar span { position: absolute; inset-block: 0; background: var(--accent); }
-.ranking-bar .negative, .ranking .winner .ranking-bar span { background: #a35638; }
-.ranking .winner { background: #fae7da; color: #733b23; }
+.ranking-bar .negative, .ranking .winner .ranking-bar span { background: var(--mw-warm, #a35638); }
+.ranking .winner { background: var(--mw-warm-soft, #fae7da); color: var(--mw-warm, #733b23); }
 .capture-panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 5px; }
 .capture-total, .capture-update { font-size: .75rem; color: var(--muted); }
 .capture-update { margin: 2px 0; }
@@ -498,7 +530,7 @@ canvas { display: block; width: 100%; }
 .capture-bin { display: flex; flex-direction: column; min-width: 0; }
 .capture-bin-label {
   position: sticky; bottom: 0; z-index: 1; min-height: var(--capture-axis-height);
-  margin: 0; padding: 2px; border-top: 1px solid #9ab6a1; background: var(--surface); font: .72rem var(--mono);
+  margin: 0; padding: 2px; border-top: 1px solid var(--mw-strong-line, #9ab6a1); background: var(--surface); font: .72rem var(--mono);
 }
 .capture-bin-key {
   display: grid; grid-template-columns: max-content minmax(0, 48px) minmax(max-content, 1fr);
@@ -525,7 +557,7 @@ canvas { display: block; width: 100%; }
 .capture-current .figure-caption { margin: 2px 0 0; font-size: .7rem; }
 .playback-dialog {
   width: min(var(--dialog-width, 1280px), calc(100% - 32px)); max-width: none; max-height: min(94dvh, 1000px);
-  padding: 0; overflow: hidden; border: 1px solid #a8b9ae; border-radius: 12px;
+  padding: 0; overflow: hidden; border: 1px solid var(--mw-line, #a8b9ae); border-radius: 12px;
   background: var(--paper); color: var(--ink); box-shadow: 0 16px 48px #14272238;
 }
 #response-dictionary-dialog { --dialog-width: 820px; max-height: 82dvh; }
@@ -573,8 +605,8 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
 .iteration-state > h3 { margin: 0; font-size: 1.1rem; }
 .iteration-state > section { min-width: 0; border-top: 1px solid var(--line); padding-top: 8px; }
 .iteration-caption { font-size: .77rem; color: var(--muted); margin: 3px 0; }
-.iteration-score { background: var(--chart); border-radius: 7px; padding: 7px 9px; margin-top: 5px; }
-.iteration-score .iteration-caption { color: #f0f6f0; }
+.iteration-score { background: var(--chart); border-radius: var(--mw-radius, 7px); padding: 7px 9px; margin-top: 5px; }
+.iteration-score .iteration-caption { color: var(--mw-chart-ink, #f0f6f0); }
 .iteration-captures { height: 216px; overflow: auto; padding-top: 2px; }
 .iteration-captures .capture-grid {
   --capture-axis-height: 37px;
@@ -582,6 +614,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   min-height: 100%; grid-auto-columns: minmax(104px, 1fr); gap: 8px;
 }
 .iteration-captures .capture-stack canvas { max-height: 16px; }
+.annotation-capture-bin .capture-stack canvas { border-inline-start: 3px solid var(--annotation-color); }
 .iteration-captures .capture-bin-label { background: var(--surface); }
 .capture-bin-trigger {
   width: 100%; min-height: 32px; padding: 3px 6px;
@@ -597,8 +630,11 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
 .iteration-words { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
 .iteration-words .figure-dark { padding: 5px; border-radius: 5px; }
 .iteration-words .figure-caption { margin-top: 1px; font-size: .73rem; }
+.annotation-swatch {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-inline-end: 4px;
+}
 .iteration-legend { gap: 3px 12px; margin-block: 4px 7px; font-size: .78rem; font-variant-numeric: tabular-nums; }
-#iteration-trend { margin-top: 14px; }
+#iteration-trend { margin-block: 14px; }
 .metric-chart { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 5px; }
 .metric-table { width: 100%; border-collapse: collapse; background: var(--surface); margin-top: 11px; font-size: .82rem; text-align: right; }
 .metric-table td, .metric-table th { padding: 8px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -606,9 +642,9 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
 .metric-table tr.current { background: var(--accent-light); }
 .table-wrap { overflow: auto; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-@media (max-width: 1000px) {
-  .layout { padding-inline: 22px; }
-  .topbar-inner { padding-inline: 22px; }
+@media (width > 700px) {
+  .layout:has(#stages[hidden]) { grid-template-columns: minmax(0, 1fr); }
+  .sidebar:has(#stages[hidden]) { display: none; }
 }
 @media (max-width: 920px) {
   .topbar-inner { flex-wrap: wrap; }
@@ -631,7 +667,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   .brand strong { font-size: 1.15rem; }
   .brand-mark { width: 30px; height: 30px; }
   .round-bar { order: 1; flex-basis: 100%; gap: 8px; font-size: .74rem; }
-  .round-bar > button { min-height: 32px; padding: 4px 7px; font-size: .75rem; }
+  .round-bar > .action-button { min-height: 32px; padding: 4px 7px; font-size: .75rem; }
   .round-step { min-width: 42px; }
   .playback-dialog { width: calc(100% - 16px); }
   .playback-dialog-header, .playback-dialog-body { padding-inline: 11px; }
@@ -644,7 +680,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
     z-index: 2; border: 0; border-bottom: 1px solid var(--line);
     margin-inline: -13px; padding: 6px 13px; background: var(--paper);
   }
-  #stages { display: none; }
+  #stages, .stage-toggle { display: none; }
   .mobile-stage { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: .78rem; }
   .mobile-stage select { min-width: 0; min-height: 32px; }
   :root { --scroll-offset: calc(var(--topbar-height) + 55px); }
@@ -715,6 +751,8 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
+        <button id="stage-toggle" class="stage-toggle" type="button" aria-controls="stages"
+          aria-expanded="true" aria-label="收起训练流程" title="收起训练流程"></button>
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <strong>ActiveBasis</strong>
       </div>
@@ -722,6 +760,8 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
         <button id="open-iterations" class="action-button" type="button"
           aria-haspopup="dialog" aria-controls="iteration-dialog">大轮次</button>
         <div id="round" class="round-steps"></div>
+        <button id="top-round-add" class="round-step round-add" type="button" hidden disabled
+          aria-label="训练下一轮" title="训练下一轮" aria-haspopup="dialog" aria-controls="iteration-dialog"><span aria-hidden="true">+</span></button>
       </div>
       <div class="score-controls" role="group" aria-label="乐谱显示">
         <label for="window-size">窗口宽度</label>
@@ -760,16 +800,18 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
       <p id="iteration-status" class="helper" role="status"></p>
       <div class="iteration-navigation" role="group" aria-label="查看训练轮次">
         <button id="iteration-prev" class="action-button" type="button">上一轮</button>
+        <button id="iteration-next" class="action-button" type="button" disabled>下一轮</button>
         <div id="iteration-steps" class="round-steps"></div>
-        <button id="iteration-next" class="action-button" type="button">下一轮</button>
+        <button id="iteration-round-add" class="round-step round-add" type="button" hidden disabled
+          aria-label="训练下一轮" title="训练下一轮"><span aria-hidden="true">+</span></button>
       </div>
     </header>
     <div class="playback-dialog-body">
       <details id="iteration-settings">
         <summary>迭代设置</summary>
       </details>
-      <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
       <section id="iteration-trend" aria-label="指标曲线"></section>
+      <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
     </div>
   </dialog>
   <template id="stage-template">
@@ -854,6 +896,20 @@ const templateName = (id) => `T-${id}`;
 const number = (value) => value.toFixed(3);
 const colors = { notes: [156, 227, 191], dark: [20, 39, 34], response: [255, 160, 84],
   match: "#f79c78", capture: "#f2d38a" };
+const plotTheme = { muted: "#b0c8bf" };
+document.addEventListener("musicword:themechange", () => {
+  const styles = getComputedStyle(document.documentElement);
+  const background = styles.getPropertyValue("--mw-chart").trim();
+  if (/^#[0-9a-f]{6}$/i.test(background)) {
+    colors.dark = background.slice(1).match(/.{2}/g).map((channel) => parseInt(channel, 16));
+  }
+  plotTheme.muted = styles.getPropertyValue("--mw-chart-muted").trim() || plotTheme.muted;
+  for (const canvas of document.querySelectorAll("canvas")) {
+    const { top, bottom, width } = canvas.getBoundingClientRect();
+    if (width && bottom > -150 && top < window.innerHeight + 150) plotDrawers.get(canvas)?.();
+  }
+});
+
 const reconstructionCache = new WeakMap();
 const decoded = new WeakMap();
 const plotDrawers = new WeakMap();
@@ -1004,14 +1060,14 @@ function drawMatrix(canvas, source, options) {
   const axisStep = (options.stride || 1);
   const ticks = options.axes ? (plotWidth < 150 ? 2 : plotWidth < 330 ? 4 : 7) : 0;
   context.font = "10px Consolas, monospace";
-  context.fillStyle = "#b0c8bf";
+  context.fillStyle = plotTheme.muted;
   context.textAlign = "center";
   for (let index = 0; index <= ticks && ticks > 0; index++) {
     const x = left + 0.5 + (plotWidth - 1) * index / ticks;
     if (index > 0 && index < ticks) {
       context.fillStyle = "#ffffff16";
       context.fillRect(x, top, 1, plotHeight);
-      context.fillStyle = "#b0c8bf";
+      context.fillStyle = plotTheme.muted;
     }
     context.textAlign = index === ticks ? "right" : (index === 0 ? "left" : "center");
     const tick = Math.min(end - 1, Math.round(start + visibleWidth * index / ticks));
@@ -1056,7 +1112,7 @@ function figure(title, packet, options = {}, subtitle = "") {
   }
   else {
     dark.style.minHeight = `${(options.height || 115) + 14}px`;
-    dark.style.color = "#b0c8bf";
+    dark.style.color = "var(--chart-muted)";
     dark.textContent = "空缺";
   }
   const caption = document.createElement("figcaption");
@@ -1294,11 +1350,20 @@ function annotationIndex() {
   });
 }
 
+async function trackAnnotations(song, track, signal) {
+  if (location.protocol === "file:") return embeddedAnnotations[song] ?? null;
+  if (!/^\d{3}$/.test(song ?? "")) return null;
+  const songs = await annotationIndex();
+  if (signal?.aborted) return null;
+  const entry = songs.find((item) => item.id === song)?.tracks.find((item) => item.id + 1 === track);
+  return entry ? fetchAnnotations(entry.key, signal) : null;
+}
+
 function groupedAnnotations(version) {
   if (annotationGroups.has(version)) return annotationGroups.get(version);
   const colors = new Map();
-  const instances = version.instances.filter(({ notes }) => notes.length).map(({ group, notes }) => {
-    if (!colors.has(group)) colors.set(group, `hsl(${(40 + colors.size * 137.5) % 360} 85% 73%)`);
+  const instances = version.instances.filter(({ notes }) => notes.length).map(({ group, notes, color }) => {
+    if (!colors.has(group)) colors.set(group, color ?? `hsl(${(40 + colors.size * 137.5) % 360} 85% 73%)`);
     const pitches = notes.map(([pitch]) => pitch);
     return { group, notes, color: colors.get(group),
       start: Math.min(...notes.map(([, start]) => start)),
@@ -1710,13 +1775,13 @@ function captureHistogram(view, round, panel) {
   }
 }
 
-function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
+function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor = templateName }) {
   const grid = element("div", "capture-grid");
   grid.style.setProperty("--capture-columns", columns);
   let maxRows = 1;
   for (const [word, captures] of groups) {
     maxRows = Math.max(maxRows, Math.ceil(captures.length / columns));
-    const name = templateName(word);
+    const name = nameFor(word);
     const column = element("section", "capture-bin");
     const summary = element("h4", "capture-bin-label");
     const label = inspect && captures.length ? button("", "capture-bin-trigger") : summary;
@@ -1725,7 +1790,8 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     const original = dictionary[word];
     if (original) {
       const title = `${name} 原体`;
-      const thumbnail = plot(title, matrix(original), { height: 18 });
+      const thumbnail = plot(title, Array.isArray(original) ? matrix(original) : original,
+        { height: 18 });
       thumbnail.classList.add("capture-bin-original");
       thumbnail.title = title;
       label.append(thumbnail);
@@ -1733,7 +1799,7 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     label.append(element("span", "capture-bin-count", String(captures.length)));
     if (label !== summary) {
       label.setAttribute("aria-expanded", "false");
-      label.setAttribute("aria-label", `${name} 的 ${captures.length} 个裁切块`);
+      label.setAttribute("aria-label", `${name} 的 ${captures.length} 个片段`);
       label.addEventListener("click", () => inspect(word, captures, label));
       summary.append(label);
     }
@@ -1741,10 +1807,11 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect }) {
     stack.reversed = true;
     for (let index = captures.length - 1; index >= 0; index--) {
       const capture = captures[index];
-      const item = element("li", capture.match === latest ? "capture-added" : "");
-      const label = `${name} 第 ${index + 1} 个裁切片段，匹配步骤 ${capture.match + 1}`;
+      const { crop, match } = capture;
+      const item = element("li", match != null && match === latest ? "capture-added" : "");
+      const label = `${name} 第 ${index + 1} 个片段${match == null ? "" : `，匹配步骤 ${match + 1}`}`;
       item.title = label;
-      item.append(plot(label, matrix(capture.crop)));
+      item.append(plot(label, Array.isArray(crop) ? matrix(crop) : crop));
       stack.append(item);
     }
     column.append(stack, summary);
@@ -2070,8 +2137,6 @@ function updateLearningRow(state, round, frame, blur) {
   watchPlots(state.plots);
 }
 
-const metricColors = ["#215c48", "#a44621", "#4556a5", "#855287", "#335f81", "#272b27"];
-
 function metricsChart(indices, height, rows) {
   const canvas = document.createElement("canvas");
   canvas.style.height = `${height}px`;
@@ -2090,6 +2155,7 @@ function metricsChart(indices, height, rows) {
     let max = 1 / scale;
     for (const row of rows) {
       for (const index of indices) {
+        if (row[index] == null) continue;
         min = Math.min(min, Math.floor(row[index] * scale) / scale);
         max = Math.max(max, Math.ceil(row[index] * scale) / scale);
       }
@@ -2098,33 +2164,38 @@ function metricsChart(indices, height, rows) {
     const x = (index) => last === 0
       ? (left + right) / 2 : left + (right - left) * index / last;
     const y = (value) => top + (bottom - top) * (max - value) / (max - min);
+    const styles = getComputedStyle(canvas);
+    const line = styles.getPropertyValue("--line").trim();
+    const muted = styles.getPropertyValue("--muted").trim();
     context.font = "10px Consolas, monospace";
     for (let tick = 0; tick <= 4; tick++) {
       const value = min + (max - min) * tick / 4;
-      context.fillStyle = "#dadbd0";
+      context.fillStyle = line;
       context.fillRect(left, y(value), right - left, 1);
-      context.fillStyle = "#525c55";
+      context.fillStyle = muted;
       context.textAlign = "right";
       context.fillText(value.toFixed(3), left - 5, y(value) + 4);
     }
-    context.fillStyle = "#d7e7db";
+    context.fillStyle = styles.getPropertyValue("--accent-light").trim();
     context.fillRect(x(last) - 4, top, 8, bottom - top);
     for (const index of indices) {
-      context.strokeStyle = context.fillStyle = metricColors[index];
+      context.strokeStyle = context.fillStyle = styles.getPropertyValue(`--metric-${index}`).trim();
       context.lineWidth = 1.7;
       context.beginPath();
       rows.forEach((row, round) => {
-        if (round === 0) context.moveTo(x(round), y(row[index]));
+        if (row[index] == null) return;
+        if (rows[round - 1]?.[index] == null) context.moveTo(x(round), y(row[index]));
         else context.lineTo(x(round), y(row[index]));
       });
       context.stroke();
       rows.forEach((row, round) => {
+        if (row[index] == null) return;
         context.beginPath();
         context.arc(x(round), y(row[index]), round === last ? 4 : 2.7, 0, 2 * Math.PI);
         context.fill();
       });
     }
-    context.fillStyle = "#525c55";
+    context.fillStyle = muted;
     context.textAlign = "center";
     const step = Math.max(1, Math.ceil(rows.length / Math.max(2, Math.floor((right - left) / 35))));
     rows.forEach((_, index) => {
@@ -2184,42 +2255,78 @@ function iterationState(round, index, song, wordDomain) {
     words.append(figure(templateName(word), packet, { height: 64, wordDomain }));
   });
   dictionary.append(element("p", "iteration-caption", learned ? "重学习后 · 原体" : "编码时 · 原体"), words);
-  column.append(score, iterationCaptures(round, index), dictionary);
+  const groups = [...capturesByWord(round).entries()].sort((a, b) => b[1].length - a[1].length);
+  const histogram = iterationHistogram(groups, round.dictionary, {
+    title: "片段直方图", detailId: `iteration-capture-detail-${index + 1}`, scope: "全部曲目",
+  });
+  column.append(score, dictionary, histogram);
   return column;
 }
 
-function iterationAnnotations(song) {
+function iterationAnnotations(song, packet) {
   const column = element("article", "iteration-state");
   column.append(element("h3", "", "标注结果"));
   const section = element("section", "iteration-score-section");
   section.append(element("h4", "subheading", "原始乐谱"));
-  const annotations = (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
+  const instances = annotationItems(packet);
+  const raw = matrix(song.roll);
+  const axes = songAxes(song);
+  const annotations = instances.length ? annotationOverlays(instances, packet.resolution, {
+    resolution: beatResolution(), tickOrigin: axes.tickOffset, pitchOrigin: song.pitchOrigin,
+  }, raw) : (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
   const score = element("div", "iteration-score");
   score.append(
     element("p", "iteration-caption", annotations.length ? `${annotations.length} 个标注框` : "无标注"),
-    plot("原始乐谱及标注方框", matrix(song.roll), { ...songAxes(song), height: 128, boxes: annotations }),
+    plot("原始乐谱及标注方框", raw, { ...axes, height: 128, boxes: annotations }),
   );
   section.append(score);
   column.append(section);
+  if (!instances.length) return column;
+
+  const byCategory = new Map();
+  for (const instance of instances) {
+    if (!byCategory.has(instance.group)) byCategory.set(instance.group, { color: instance.color, fragments: [] });
+    byCategory.get(instance.group).fragments.push({ crop: annotationThumbnail(instance, packet.resolution) });
+  }
+  const categories = [...byCategory.entries()].sort((a, b) => b[1].fragments.length - a[1].fragments.length);
+  const nameFor = (index) => `类别 ${categories[index][0]}`;
+  const originals = categories.map(([, { fragments }]) => fragments[0].crop);
+  const dictionary = element("section", "iteration-dictionary");
+  dictionary.append(element("h4", "subheading", "标注字典"), element("p", "iteration-caption", "每类显示首个标注片段"));
+  const words = element("div", "iteration-words");
+  originals.forEach((original, index) => {
+    const item = figure(nameFor(index), original, { height: 64 });
+    const swatch = element("span", "annotation-swatch");
+    swatch.style.backgroundColor = categories[index][1].color;
+    item.querySelector("figcaption").prepend(swatch);
+    words.append(item);
+  });
+  dictionary.append(words);
+  const groups = categories.map(([, { fragments }], index) => [index, fragments]);
+  const histogram = iterationHistogram(groups, originals, {
+    title: "标注片段直方图", detailId: "iteration-annotation-fragments", nameFor,
+    groupColors: categories.map(([, { color }]) => color),
+  });
+  column.append(dictionary, histogram);
   return column;
 }
 
-function iterationCaptures(round, index) {
+function iterationHistogram(groups, dictionary, { title, detailId, scope, nameFor = templateName, groupColors }) {
   const section = element("section", "iteration-capture-section");
-  section.append(element("h4", "subheading", "裁切数据集"));
-  if (!round.captures.length) {
-    section.append(element("p", "iteration-caption", "本轮没有裁切块"));
+  section.append(element("h4", "subheading", title));
+  const total = groups.reduce((sum, [, fragments]) => sum + fragments.length, 0);
+  if (!total) {
+    section.append(element("p", "iteration-caption", "暂无片段"));
     return section;
   }
   const stack = element("div", "iteration-captures");
   stack.tabIndex = 0;
   stack.setAttribute("role", "region");
-  stack.setAttribute("aria-label", `第 ${index + 1} 轮裁切块堆叠`);
+  stack.setAttribute("aria-label", title);
   const detail = element("div", "iteration-capture-detail");
-  detail.id = `iteration-capture-detail-${index + 1}`;
+  detail.id = detailId;
   detail.hidden = true;
   let selected;
-  const groups = [...capturesByWord(round).entries()].sort((a, b) => b[1].length - a[1].length);
   const inspect = (word, captures, trigger) => {
     clearPlots(detail);
     selected?.setAttribute("aria-expanded", "false");
@@ -2231,7 +2338,7 @@ function iterationCaptures(round, index) {
     selected = trigger;
     selected.setAttribute("aria-expanded", "true");
     detail.hidden = false;
-    const title = element("h5", "subheading", `${templateName(word)} · ${captures.length} 个裁切块`);
+    const title = element("h5", "subheading", `${nameFor(word)} · ${captures.length} 个片段`);
     const gallery = element("div", "iteration-capture-gallery");
     gallery.tabIndex = 0;
     gallery.setAttribute("role", "region");
@@ -2242,11 +2349,18 @@ function iterationCaptures(round, index) {
     detail.append(title, gallery);
     watchPlots(detail);
   };
-  stack.append(captureBins(groups, round.dictionary, { inspect }));
+  const grid = captureBins(groups, dictionary, { inspect, nameFor });
+  if (groupColors) {
+    for (const [index, bin] of [...grid.children].entries()) {
+      bin.classList.add("annotation-capture-bin");
+      bin.style.setProperty("--annotation-color", groupColors[index]);
+    }
+  }
+  stack.append(grid);
   for (const trigger of stack.querySelectorAll(".capture-bin-trigger")) {
     trigger.setAttribute("aria-controls", detail.id);
   }
-  section.append(element("p", "iteration-caption", `全部曲目 · ${round.captures.length} 块 · 点击单词查看裁切块`),
+  section.append(element("p", "iteration-caption", `${scope ? `${scope} · ` : ""}${total} 个片段 · 点击分组查看`),
     stack, detail);
   return section;
 }
@@ -2254,9 +2368,25 @@ function iterationCaptures(round, index) {
 const iterationDialog = get("iteration-dialog");
 const iterationStates = get("iteration-states");
 const iterationTrend = get("iteration-trend");
-let comparedRecord, comparedSong;
+let comparedRecord, comparedSong, comparedAnnotationPacket;
+const iterationAnnotationPackets = new WeakMap();
 let iterationWordDomain = [1, 1];
 let measuredRounds = 0;
+
+function iterationAnnotationPacket(song) {
+  if (sourceMode.value === "local" && localSource && localSource === sharedSource && song.id === localSource.name) {
+    return inputAnnotations;
+  }
+  if (!iterationAnnotationPackets.has(song)) {
+    iterationAnnotationPackets.set(song, null);
+    trackAnnotations(song.id, data.track).then((packet) => {
+      if (!packet) return;
+      iterationAnnotationPackets.set(song, packet);
+      if (currentSong() === song) refreshIterations();
+    }).catch(() => {});
+  }
+  return iterationAnnotationPackets.get(song);
+}
 
 function refreshIterations() {
   if (!iterationDialog.open) return;
@@ -2278,13 +2408,26 @@ function refreshIterations() {
   if (previousTicks !== iterationWordDomain[0] || previousPitches !== iterationWordDomain[1]) {
     for (const canvas of iterationStates.querySelectorAll(".iteration-words canvas")) plotDrawers.get(canvas)();
   }
-  const count = song ? data.rounds.length : 0;
+  const count = song ? Math.min(state.round + 1, data.rounds.length) : 0;
   iterationStates.hidden = !count;
   let annotations = iterationStates.lastElementChild;
-  if (count && !annotations) {
-    annotations = iterationAnnotations(song);
-    iterationStates.append(annotations);
+  const packet = count ? iterationAnnotationPacket(song) : null;
+  if (count && (!annotations || packet !== comparedAnnotationPacket)) {
+    const column = iterationAnnotations(song, packet);
+    if (annotations) {
+      clearPlots(annotations);
+      annotations.replaceWith(column);
+    } else iterationStates.append(column);
+    annotations = column;
+    comparedAnnotationPacket = packet;
     watchPlots(annotations);
+    const stack = annotations.querySelector(".iteration-captures");
+    if (stack) stack.scrollTop = stack.scrollHeight;
+  }
+  while (iterationStates.childElementCount > count + 1) {
+    const lastRound = annotations.previousElementSibling;
+    clearPlots(lastRound);
+    lastRound.remove();
   }
   const renderedRounds = Math.max(0, iterationStates.childElementCount - 1);
   for (let index = renderedRounds; index < count; index++) {
@@ -2312,8 +2455,10 @@ function refreshIterations() {
   }
   const legend = element("div", "details-bar iteration-legend");
   for (const [id, name] of data.metricNames.entries()) {
-    const label = element("strong", "", `${name} ${number(rows.at(-1)[id])}`);
-    label.style.color = metricColors[id];
+    const value = rows.at(-1)[id];
+    const label = element("strong", "", `${name} ${value == null ? "—" : number(value)}`);
+    if (value == null) label.title = "此轮缺少计算该指标所需的逐音符标注";
+    label.style.color = `var(--metric-${id})`;
     legend.append(label);
   }
   const chart = element("div", "metric-chart");
@@ -2405,6 +2550,11 @@ function render(panel) {
 }
 
 let playingPanel = null;
+
+window.addEventListener("message", (event) => {
+  if (event.source === window.parent && event.origin === window.location.origin &&
+      event.data?.type === "musicword:deactivate") stop(playingPanel);
+});
 
 function syncPlay(panel) {
   panel.parts.play.innerHTML = icon(panel.timer ? "pause" : "play");
@@ -2513,6 +2663,17 @@ function createPanel([key, title, description]) {
 const panels = stages.map(createPanel);
 const topbar = document.querySelector(".topbar");
 const mobileStage = get("stage-select").closest("label");
+const stageToggle = get("stage-toggle");
+const stageNav = get("stages");
+stageToggle.addEventListener("click", () => {
+  const expanded = stageNav.hidden;
+  const label = expanded ? "收起训练流程" : "展开训练流程";
+  stageNav.hidden = !expanded;
+  stageToggle.setAttribute("aria-expanded", String(expanded));
+  stageToggle.setAttribute("aria-label", label);
+  stageToggle.title = label;
+  onScroll();
+});
 
 function syncLocation() {
   const boundary = Math.max(topbar.getBoundingClientRect().bottom, mobileStage.getBoundingClientRect().bottom);
@@ -2525,7 +2686,7 @@ function syncLocation() {
   state.activeStage = atBottom ? panels.length - 1 : active;
   const { key, section } = panels[state.activeStage];
   get("stage-select").value = key;
-  for (const link of get("stages").children) {
+  for (const link of stageNav.children) {
     if (link.hash === `#${section.id}`) link.setAttribute("aria-current", "location");
     else link.removeAttribute("aria-current");
   }
@@ -2576,6 +2737,7 @@ function changeRun(key, value, preservePosition = false) {
   }
   onScroll();
   refreshIterations();
+  updateSharedScore();
 }
 
 get("stage-select").addEventListener("change", (event) => {
@@ -2615,6 +2777,8 @@ const cancelButton = button("取消训练", "action-button cancel-training");
 cancelButton.hidden = true;
 trainButton.type = "submit";
 let localSource = null;
+let sourceTracks = [];
+let sharedApi, sharedControls, sharedReference, sharedSource;
 let sourceRequest = null;
 let inputAnnotationRequest = null;
 let inputAnnotations = null;
@@ -2851,7 +3015,7 @@ function launchControls() {
       [["learnedMin", "下限", 3, 1, 32], ["learnedMax", "上限", 8, 1, 32]], [1, 32]),
   );
   const iteration = element("div", "control-strip parameter-grid");
-  iteration.append(parameter("rounds", "初始训练轮数", "运行训练时执行的轮数。到达最后一轮后，可用「训练下一轮」继续迭代。", 2, 1),
+  iteration.append(parameter("rounds", "初始训练轮数", "运行训练时执行的轮数。点击轮次栏右侧的加号可继续迭代。", 2, 1),
     parameter("growth", "字典满载时扩容单词数", "新一轮开始时，若上轮重学习填满字典，就新增这么多空槽。设为 0 时保持字典容量。", 3, 0, 12));
   get("iteration-settings").append(parameterPanel("", iteration));
   form.append(trainButton, cancelButton);
@@ -2957,7 +3121,7 @@ function controlsState() {
   trainButton.disabled = !sourceReady || running;
   cancelButton.hidden = !running;
   trainButton.textContent = running ? "正在训练…" : "运行训练";
-  syncIterationNext();
+  syncRoundActions();
 }
 
 async function api(action, parameters, signal) {
@@ -2973,30 +3137,37 @@ async function api(action, parameters, signal) {
 
 const roundTimelines = [get("round"), get("iteration-steps")];
 const iterationNext = get("iteration-next");
+const addRoundButtons = [get("top-round-add"), get("iteration-round-add")];
+
+function canContinue() {
+  return live && data.rounds.length > 0;
+}
 
 function openIterations() {
   if (iterationDialog.open) return;
   const iterationStatus = get("iteration-status");
-  if (!sourceReady) {
+  if (!sourceReady && !canContinue()) {
     iterationStatus.textContent = form.hidden ? "离线回放" : "在「乐谱量化」选择音轨后即可训练。";
   } else if (!iterationStatus.textContent && !trainingRun && data.rounds.length) {
-    iterationStatus.textContent = "当前为保存的回放。运行训练后，可逐轮继续训练。";
+    iterationStatus.textContent = "当前为保存的回放。点击加号可从最后一轮继续训练。";
   }
   iterationDialog.showModal();
   syncRoundTimelines();
   refreshIterations();
 }
 
-function syncIterationNext() {
-  const hasNext = state.round + 1 < data.rounds.length;
-  const canTrain = sourceReady && trainingRun !== null;
-  iterationNext.textContent = !hasNext && canTrain ? "训练下一轮" : "下一轮";
-  iterationNext.disabled = !hasNext && (!canTrain || trainingPending());
+function syncRoundActions() {
+  get("iteration-prev").disabled = !data.rounds.length || state.round === 0;
+  iterationNext.disabled = state.round + 1 >= data.rounds.length;
+  const canAddRound = canContinue() && !trainingPending();
+  for (const button of addRoundButtons) {
+    button.hidden = !live;
+    button.disabled = !canAddRound;
+  }
 }
 
 function syncRoundTimelines() {
-  get("iteration-prev").disabled = !data.rounds.length || state.round === 0;
-  syncIterationNext();
+  syncRoundActions();
   for (const strip of roundTimelines) {
     let selected;
     for (const item of strip.querySelectorAll("[data-round]")) {
@@ -3019,10 +3190,14 @@ get("open-iterations").addEventListener("click", () => {
   openIterations();
 });
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
-iterationNext.addEventListener("click", () => {
-  if (state.round + 1 < data.rounds.length) changeRun("round", state.round + 1);
-  else if (sourceReady && trainingRun && !trainingPending()) void runTraining(true);
-});
+iterationNext.addEventListener("click", () => changeRun("round", state.round + 1));
+for (const button of addRoundButtons) {
+  button.addEventListener("click", () => {
+    if (!canContinue() || trainingPending()) return;
+    void runTraining(true);
+    openIterations();
+  });
+}
 iterationDialog.addEventListener("close", () => {
   if (iterationDialog.open) return;
   clearPlots(iterationStates);
@@ -3069,8 +3244,8 @@ function updateData(record, preservePosition = false) {
   changeRun("round", active, preservePosition);
 }
 
-function inputAnnotationItems() {
-  const versions = inputAnnotations?.versions;
+function annotationItems(packet) {
+  const versions = packet?.versions;
   const version = versions?.dictionary?.instances?.length ? versions.dictionary : versions?.csv;
   if (!version) return [];
   return groupedAnnotations(version).instances;
@@ -3078,7 +3253,13 @@ function inputAnnotationItems() {
 
 function inputAnnotationOverlay(preview, raw) {
   if (!inputAnnotations) return null;
-  const ratio = preview.resolution / inputAnnotations.resolution;
+  const instances = annotationItems(inputAnnotations)
+    .filter(({ group }) => !activeAnnotationGroup || group === activeAnnotationGroup);
+  return annotationOverlays(instances, inputAnnotations.resolution, preview, raw);
+}
+
+function annotationOverlays(instances, resolution, preview, raw) {
+  const ratio = preview.resolution / resolution;
   function quantize(tick) {
     const grid = tick * ratio;
     const left = Math.floor(grid);
@@ -3089,8 +3270,7 @@ function inputAnnotationOverlay(preview, raw) {
     const right = Math.max(left + 1, quantize(end) - preview.tickOrigin);
     return [left, low - preview.pitchOrigin, right, high - preview.pitchOrigin];
   }
-  return inputAnnotationItems()
-    .filter(({ group }) => !activeAnnotationGroup || group === activeAnnotationGroup)
+  return instances
     .map((item) => ({ box: box(item.start, item.end, item.low, item.high), color: item.color }))
     .filter(({ box: [left, low, right, high] }) =>
       right > 0 && left < raw.width && high > 0 && low < raw.height);
@@ -3114,7 +3294,7 @@ function annotationThumbnail({ notes, low, high, start, end }, resolution) {
 
 function showInputAnnotationGroups() {
   const representatives = new Map();
-  for (const item of inputAnnotationItems()) {
+  for (const item of annotationItems(inputAnnotations)) {
     if (!representatives.has(item.group)) representatives.set(item.group, item);
   }
   const options = [...representatives.values()].sort((a, b) =>
@@ -3150,25 +3330,93 @@ function clearInputAnnotations() {
   inputAnnotationRow.hidden = true;
 }
 
+function sharedAnnotationTrack() {
+  if (!sharedReference || sourceMode.value !== "local" || localSource !== sharedSource) return null;
+  const signature = sourceTracks.find((track) => track.id === Number(trackSelect.value))?.signature;
+  return sharedApi.referenceTrack(sharedReference, signature);
+}
+
+function updateSharedScore() {
+  if (!sharedReference || !sharedControls) return;
+  if (sourceMode.value !== "local" || localSource !== sharedSource) {
+    sharedControls.setScore("当前 MIDI 与所加载的标注不同。");
+    return;
+  }
+  const track = sharedAnnotationTrack();
+  const segments = sharedApi.referenceSegments(sharedReference, track);
+  if (!segments.length) {
+    sharedControls.setScore("当前音轨在所选层没有可对齐的人工标注。");
+    return;
+  }
+  const song = currentSong();
+  const round = currentRound();
+  if (!song || !round) {
+    sharedControls.setScore("训练完成后显示人工标注对照结果。");
+    return;
+  }
+  const scale = beatResolution() / sharedReference.document.timing.sourcePpq;
+  const notes = track.notes.map((note) => sharedApi.quantizedNote(note, scale));
+  const tickOffset = song.tickOrigin - song.timePad;
+  const boxes = round.matches.filter((match) => match.song === state.song)
+    .map(({ box: [left, low, right, high] }) =>
+      [left + tickOffset, low + song.pitchOrigin, right + tickOffset, high + song.pitchOrigin]);
+  const predictions = sharedApi.groupsInBoxes(notes, boxes);
+  const counts = sharedApi.fragmentCounts(segments.map((segment) => segment.noteIds), predictions);
+  sharedControls.setScore(sharedApi.formatScores(counts, `第 ${state.round + 1} 轮`));
+}
+
+async function initializeSharedAnnotations() {
+  if (!new URLSearchParams(location.search).has("workspace")) return;
+  const mount = element("div", "");
+  inputAnnotationRow.before(mount);
+  try {
+    const moduleUrl = new URL("/shared-annotations.mjs", location.origin).href;
+    sharedApi = await import(/* @vite-ignore */ moduleUrl);
+    sharedControls = sharedApi.mountAnnotationControls(mount, {
+      async onLoad(annotationDocument, file) {
+        sourceMode.value = "local";
+        upload.value = "";
+        const source = { name: file.name, file, encoded: null, annotationDocument };
+        localSource = source;
+        await loadSource();
+        if (source !== localSource || sourceMode.value !== "local" || !sourceReady) {
+          throw new Error("无法加载标注所用的 MIDI。");
+        }
+        sharedSource = source;
+      },
+      onChange(reference) {
+        sharedReference = reference;
+        loadInputAnnotations();
+        updateSharedScore();
+      },
+    });
+  } catch (error) {
+    mount.textContent = error.message;
+  }
+}
+
 async function loadInputAnnotations() {
   clearInputAnnotations();
+  if (sourceMode.value === "local" && localSource === sharedSource && sharedReference) {
+    const track = sharedAnnotationTrack();
+    const instances = sharedApi.referenceSegments(sharedReference, track).map(({ categoryId, color, notes }) => ({
+      group: categoryId, color,
+      notes: notes.map((note) => [note.midi, note.ticks, note.ticks + Math.max(1, note.durationTicks)]),
+    }));
+    inputAnnotations = { resolution: sharedReference.document.timing.sourcePpq, versions: { dictionary: { instances } } };
+    showInputAnnotationGroups();
+    updateSharedScore();
+    refreshIterations();
+    return;
+  }
   if (sourceMode.value !== "pop") return;
   const song = live ? songSelect.value : currentSong()?.id;
   const track = live ? Number(trackSelect.value) : data.track;
-  if (location.protocol === "file:") {
-    inputAnnotations = embeddedAnnotations[song] ?? null;
-    if (inputAnnotations) showInputAnnotationGroups();
-    return;
-  }
   const controller = new AbortController();
   inputAnnotationRequest = controller;
   try {
-    const songs = await annotationIndex();
-    if (controller.signal.aborted) return;
-    const entry = songs.find((item) => item.id === song)?.tracks.find((item) => item.id + 1 === track);
-    if (!entry) return;
-    const result = await fetchAnnotations(entry.key, controller.signal);
-    if (controller.signal.aborted) return;
+    const result = await trackAnnotations(song, track, controller.signal);
+    if (controller.signal.aborted || !result) return;
     inputAnnotations = result;
     showInputAnnotationGroups();
   } catch {
@@ -3200,6 +3448,7 @@ function activeSource() {
 }
 
 async function loadSource(keepRecord = false) {
+  sourceTracks = [];
   resetSource(keepRecord);
   const local = sourceMode.value === "local";
   songLabel.hidden = local;
@@ -3227,11 +3476,15 @@ async function loadSource(keepRecord = false) {
     const tracks = await api("tracks", activeSource(), controller.signal);
     if (controller.signal.aborted) return;
     if (!tracks.length) throw new Error("此 MIDI 中没有带完整音符的音轨。");
-    const preferred = keepRecord ? data.track : tracks.find((track) => track.id === 1)?.id;
+    sourceTracks = tracks;
+    const signatures = new Set(local && localSource.annotationDocument?.tracks
+      .filter((track) => track.layers.some((layer) => layer.words.some((word) => !word.automatic)))
+      .map((track) => track.signature) || []);
+    const annotated = tracks.find((track) => signatures.has(track.signature))?.id;
+    const preferred = keepRecord ? data.track : annotated ?? tracks.find((track) => track.id === 1)?.id;
     refreshChoices(trackSelect, tracks.map((track) =>
       [`${track.name || "音轨"} · ${track.id} · ${track.notes} 音符`, track.id]), preferred);
     sourceReady = true;
-    get("iteration-status").textContent = "";
     if (keepRecord && Number(trackSelect.value) !== data.track) {
       state.song = 0;
       updateData(emptyData);
@@ -3296,8 +3549,39 @@ async function computeExamples() {
   }
 }
 
+function playbackTrainingRequest(record) {
+  const last = record.rounds.at(-1);
+  const notes = Array.from({ length: last.dictionary.length }, () => []);
+  const dictionary = Array(last.dictionary.length).fill(null);
+  for (const entry of last.learning) {
+    if (entry.note) notes[entry.template].push(entry.note);
+    if (entry.result) dictionary[entry.template] = notes[entry.template];
+  }
+  let randomTrials = 0;
+  let lastRandomNotes;
+  for (const round of record.rounds) {
+    for (const trial of round.trials) {
+      if (!trial.learned) {
+        randomTrials++;
+        lastRandomNotes = trial.notes;
+      }
+    }
+  }
+  return {
+    seed: record.seed,
+    config: record.config ?? {
+      response_threshold: record.threshold, usefulness_threshold: record.usefulness,
+      uniqueness_threshold: record.uniqueness, merge_threshold: record.mergeThreshold,
+      spawn_ratio: record.spawnRatio, minimum_captures: record.minimumCaptures,
+      capture_margin: record.captureMargin, repulsion: record.repulsion,
+    },
+    songs: record.songs.map(({ roll, boxes }) => ({ roll, boxes })),
+    dictionary, randomTrials, lastRandomNotes, metricNames: record.metricNames,
+  };
+}
+
 async function runTraining(continuing = false) {
-  if (!sourceReady || (!continuing && !form.checkValidity())) {
+  if (continuing ? !canContinue() : !sourceReady || !form.checkValidity()) {
     if (sourceReady) {
       const field = [...form.elements].find(control => !control.validity.valid);
       const settings = get("iteration-settings");
@@ -3310,18 +3594,21 @@ async function runTraining(continuing = false) {
   }
   const controller = new AbortController();
   trainingJob.request = controller;
-  const request = continuing ? trainingRun.request : {
+  const freshRequest = continuing ? null : {
     ...activeSource(), track: Number(trackSelect.value), settings: settings(),
   };
-  const snapshot = request.settings;
+  const snapshot = freshRequest?.settings;
   controlsState();
   setTrainingStatus(continuing ? `正在训练第 ${data.rounds.length + 1} 轮…`
     : `正在计算 ${snapshot.rounds} 轮训练，完成后可逐步回放。`);
   try {
-    const { checkpoint, ...result } = await api(continuing ? "continue" : "train",
-      continuing ? { ...request, checkpoint: trainingRun.checkpoint } : request, controller.signal);
+    const action = continuing ? trainingRun?.action ?? "continue-playback" : "train";
+    const request = freshRequest ?? trainingRun?.request ?? playbackTrainingRequest(data);
+    const { checkpoint, ...result } = await api(action, { ...request,
+      checkpoint: continuing ? trainingRun?.checkpoint : undefined,
+    }, controller.signal);
     if (controller.signal.aborted) return;
-    trainingRun = checkpoint ? { request, checkpoint } : null;
+    trainingRun = { request, checkpoint, action: action === "train" ? "continue" : action };
     if (continuing) {
       data.rounds.push(...result.rounds);
       data.metrics.push(...result.metrics);
@@ -3411,9 +3698,11 @@ async function initialize() {
     setExamples(record.examples ?? []);
   }
   if (live) {
-    const selected = refreshChoices(songSelect, songs.map((song) => [`${song.name} · ${song.id}`, song.id]), currentSong()?.id);
-    if (!selected) sourceMode.value = "local";
-    await Promise.all([loadSource(selected !== "" && selected === currentSong()?.id), computeExamples()]);
+    const recordedSong = currentSong()?.id;
+    const selected = refreshChoices(songSelect, songs.map((song) => [`${song.name} · ${song.id}`, song.id]), recordedSong);
+    if (!selected || (recordedSong && recordedSong !== selected)) sourceMode.value = "local";
+    initializeSharedAnnotations();
+    await Promise.all([loadSource(Boolean(record)), computeExamples()]);
   } else {
     refreshChoices(songSelect, data.songs.map((song, index) => [song.id, index]), 0);
     refreshChoices(trackSelect, record ? [[`音轨 ${record.track}`, record.track]] : [], record?.track);

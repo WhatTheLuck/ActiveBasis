@@ -20,8 +20,8 @@
         <button id="open-iterations" class="action-button" type="button"
           aria-haspopup="dialog" aria-controls="iteration-dialog">大轮次</button>
         <div id="round" class="round-steps"></div>
-        <button id="top-round-add" class="action-button round-add" type="button" hidden disabled
-          aria-label="训练下一轮" title="训练下一轮" aria-haspopup="dialog" aria-controls="iteration-dialog">+</button>
+        <button id="top-round-add" class="round-step round-add" type="button" hidden disabled
+          aria-label="训练下一轮" title="训练下一轮" aria-haspopup="dialog" aria-controls="iteration-dialog"><span aria-hidden="true">+</span></button>
       </div>
       <div class="score-controls" role="group" aria-label="乐谱显示">
         <label for="window-size">窗口宽度</label>
@@ -62,16 +62,16 @@
         <button id="iteration-prev" class="action-button" type="button">上一轮</button>
         <button id="iteration-next" class="action-button" type="button" disabled>下一轮</button>
         <div id="iteration-steps" class="round-steps"></div>
-        <button id="iteration-round-add" class="action-button round-add" type="button" hidden disabled
-          aria-label="训练下一轮" title="训练下一轮">+</button>
+        <button id="iteration-round-add" class="round-step round-add" type="button" hidden disabled
+          aria-label="训练下一轮" title="训练下一轮"><span aria-hidden="true">+</span></button>
       </div>
     </header>
     <div class="playback-dialog-body">
       <details id="iteration-settings">
         <summary>迭代设置</summary>
       </details>
-      <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
       <section id="iteration-trend" aria-label="指标曲线"></section>
+      <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
     </div>
   </dialog>
   <template id="stage-template">
