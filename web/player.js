@@ -1,6 +1,7 @@
 "use strict";
 
 const get = (id) => document.getElementById(id);
+const previewAudio = window.MusicWordPreview;
 let data = { rounds: [], songs: [], metrics: [] };
 const stages = [
   ["input", "乐谱量化", "选择音轨，设置量化网格和高斯模糊，通过全曲缩略图移动时间窗口。"],
@@ -96,7 +97,65 @@ function plot(title, values, options = {}) {
   canvas.style.height = `${options.height || 115}px`;
   const source = options.blur && showBlur() ? gaussianView(values, ...options.blur) : values;
   plotDrawers.set(canvas, () => drawMatrix(canvas, source, options));
+  if (options.preview !== false && (!options.heat || options.previewSource)) {
+    previewAudio.bindRoll(canvas, (event) => rollClip(canvas, options.previewSource ?? values, options, event),
+      `试听：${title}`, { pointerOnly: options.pointerOnly });
+  }
   return canvas;
+}
+
+const rollGeometry = new WeakMap();
+const rollNotes = new WeakMap();
+
+function notesInRoll(source) {
+  if (rollNotes.has(source)) return rollNotes.get(source);
+  const notes = [];
+  const { width, height, values } = source;
+  for (let pitch = 0; pitch < height; pitch++) {
+    let start = -1, peak = 0, previous = 0;
+    for (let tick = 0; tick <= width; tick++) {
+      const level = tick === width ? 0 : values[pitch * width + tick];
+      const startsAgain = level >= .98 && (previous < .15 || previous >= .98);
+      if (start >= 0 && (level < .004 || startsAgain)) {
+        if (peak >= .12) notes.push([start, tick, pitch, 84]);
+        start = -1;
+        peak = 0;
+      }
+      if (level >= .004 && start < 0) start = tick;
+      peak = Math.max(peak, level);
+      previous = level;
+    }
+  }
+  rollNotes.set(source, notes);
+  return notes;
+}
+
+function rollClip(canvas, source, options, event) {
+  const [start, end] = options.window ?? [0, source.width];
+  let from = start, to = end, low = 0, high = source.height;
+  const geometry = rollGeometry.get(canvas);
+  if (event.type === "click" && geometry && options.boxes?.length) {
+    const rect = canvas.getBoundingClientRect();
+    const tick = start + (event.clientX - rect.left - geometry.left) / geometry.width * (end - start);
+    const pitch = geometry.rows - (event.clientY - rect.top - geometry.top) / geometry.height * geometry.rows;
+    const box = options.boxes.reduce((nearest, { box }) => {
+      const [x1, y1, x2, y2] = box;
+      if (tick < x1 || tick >= x2 || pitch < y1 || pitch > y2) return nearest;
+      const area = (x2 - x1) * (y2 - y1);
+      return !nearest || area < nearest.area ? { box, area } : nearest;
+    }, null)?.box;
+    if (box) {
+      from = Math.max(start, box[0]);
+      to = Math.min(end, box[2]);
+      low = box[1];
+      high = box[3];
+    }
+  }
+  const center = options.previewPitch ?? options.pitchOrigin ?? Math.min(60, 128 - source.height);
+  const notes = notesInRoll(source).filter(([on, off, pitch]) =>
+    on < to && off > from && pitch >= low && pitch < high)
+    .map(([on, off, pitch, velocity]) => [on, off, pitch + center, velocity]);
+  return { notes, tpb: options.previewResolution ?? beatResolution(), from, to };
 }
 
 const blurredMatrices = new WeakMap();
@@ -163,6 +222,7 @@ function drawMatrix(canvas, source, options) {
     plotWidth = cell * visibleWidth;
     plotHeight = cell * source.height;
   }
+  rollGeometry.set(canvas, { left, top: plotTop, width: plotWidth, height: plotHeight, rows: source.height });
   const pitchLimit = options.pitchLimit ?? source.height;
   const samples = Math.max(1, Math.min(visibleWidth, Math.ceil(plotWidth)));
   const heat = options.heat || false;
@@ -378,7 +438,7 @@ function viewport(view, source, panel, section, visible, boxes = [], step) {
   }
   const overview = element("div", "overview");
   const track = element("div", "overview-track");
-  track.append(plot("全曲缩略图", source, { height: 54, boxes }));
+  track.append(plot("全曲缩略图", source, { height: 54, boxes, preview: false }));
   overview.append(track);
   view.append(overview, section);
   bindTimeWindow(track, source, panel, section, visible, step);
@@ -473,6 +533,7 @@ function viewInput(view, panel) {
   plotRow(section, "MIDI 音高", source, {
     height: 242, axes: true, heat: Boolean(blurred), window: visible,
     pitchOrigin: preview.pitchOrigin, tickOffset: preview.tickOrigin,
+    previewSource: raw, previewResolution: preview.resolution,
     boxes: annotations,
   });
   stageValue(view, String(preview.notes), "个音符");
@@ -582,7 +643,7 @@ function viewResponseDictionary(view, round) {
 function responseChoice(text, packet, parameters, options) {
   const button = element("button", "variant-choice response-choice");
   button.type = "button";
-  const thumbnail = plot(text, matrix(packet), options);
+  const thumbnail = plot(text, matrix(packet), { ...options, pointerOnly: true });
   thumbnail.setAttribute("aria-hidden", "true");
   button.append(thumbnail, element("span", "", text), element("span", "variant-parameters", parameters));
   return button;
@@ -601,13 +662,13 @@ function viewDictionary(view, round) {
   round.dictionary.forEach((packet, index) => {
     const details = element("details", "word");
     const summary = element("summary", "");
-    summary.append(figure(templateName(index), packet, { height: 62, wordDomain }, packet ? originalParameters : ""));
+    summary.append(figure(templateName(index), packet, { height: 62, wordDomain, pointerOnly: true }, packet ? originalParameters : ""));
     const variants = element("div", "word-variants");
     round.variants.forEach((item, id) => {
       if (item.template !== index) return;
       const button = element("button", "variant-choice");
       button.type = "button";
-      button.append(figure(pitchMultiplier(item.scale), displayedVariant(item), { height: 54, wordDomain }, variantParameters));
+      button.append(figure(pitchMultiplier(item.scale), displayedVariant(item), { height: 54, wordDomain, pointerOnly: true }, variantParameters));
       button.disabled = !item.responses[state.song];
       button.addEventListener("click", () => chooseVariant(id, true));
       variants.append(button);
@@ -737,7 +798,7 @@ function viewSimilarity(view) {
     const kernel = showBlur() && result.matchKernel;
     plots.append(
       figure(kernel ? "单词匹配核" : "单词", kernel || example.left,
-        { ...axes, blur: kernel ? null : example.wordBlur ?? blurSettings() }, noteCount(example.wordNotes)),
+        { ...axes, previewSource: matrix(example.left), blur: kernel ? null : example.wordBlur ?? blurSettings() }, noteCount(example.wordNotes)),
       figure("乐谱片段", example.right, axes, noteCount(example.targetNotes)),
     );
     const map = result.responseMap;
@@ -943,7 +1004,7 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor
     if (original) {
       const title = `${name} 原体`;
       const thumbnail = plot(title, Array.isArray(original) ? matrix(original) : original,
-        { height: 18 });
+        { height: 18, pointerOnly: label !== summary });
       thumbnail.classList.add("capture-bin-original");
       thumbnail.title = title;
       label.append(thumbnail);
@@ -1001,7 +1062,6 @@ function matchDictionary(round, currentWord) {
     const item = element("li", "encoding-dictionary-word");
     if (word === currentWord) item.setAttribute("aria-current", "true");
     const thumbnail = plot(`${name} 原体`, matrix(packet), { height: 22 });
-    thumbnail.setAttribute("aria-hidden", "true");
     item.append(thumbnail, element("span", "", name));
     list.append(item);
   });
@@ -1914,7 +1974,7 @@ trackSelect.id = "track";
 const upload = element("input", "file-input");
 upload.id = "midi-file";
 upload.type = "file";
-upload.accept = ".mid,.midi,audio/midi,audio/x-midi";
+upload.accept = previewAudio.accept;
 const sourceRow = element("div", "control-strip source-controls");
 const inputAnnotationRow = element("div", "control-strip");
 const inputAnnotationGroup = element("div", "annotation-options");
@@ -1923,7 +1983,7 @@ inputAnnotationGroup.setAttribute("role", "group");
 inputAnnotationGroup.setAttribute("aria-label", "标注类别");
 let activeAnnotationGroup = "";
 const songLabel = field("曲目", songSelect, "切换 POP909 曲目会载入新乐谱并重新训练。");
-const fileLabel = field("本地 MIDI", upload, "导入 .mid 或 .midi 文件后，可选择其中含有音符的音轨。");
+const fileLabel = field("导入乐谱", upload, "支持 MIDI、MusicXML 和压缩 MusicXML。导入后可选择音轨。");
 const trainButton = button("运行训练", "action-button primary");
 const cancelButton = button("取消训练", "action-button cancel-training");
 cancelButton.hidden = true;
@@ -2203,12 +2263,10 @@ function launchControls() {
     loadInputAnnotations();
     updatePreview();
   });
-  upload.addEventListener("change", async () => {
-    const file = upload.files[0];
-    if (!file) return;
+  previewAudio.attachImport(upload, async (file) => {
     localSource = { name: file.name, file, encoded: null };
     await loadSource();
-  });
+  }, (message) => { status.textContent = message; });
   form.addEventListener("submit", (event) => {
     event.preventDefault();
     if (sourceReady) schedule(trainingJob, 0);
@@ -2457,7 +2515,11 @@ function showInputAnnotationGroups() {
     choice.dataset.group = item?.group ?? "";
     choice.setAttribute("aria-pressed", String(!item));
     if (item) {
-      const image = plot(`类别 ${item.group} 的第一个实例`, annotationThumbnail(item, inputAnnotations.resolution), { height: 34 });
+      const span = item.end - item.start;
+      const scale = Math.min(24 / inputAnnotations.resolution, 96 / Math.max(1, span));
+      const image = plot(`类别 ${item.group} 的第一个实例`, annotationThumbnail(item, inputAnnotations.resolution), {
+        height: 34, previewPitch: item.low, previewResolution: inputAnnotations.resolution * scale, pointerOnly: true,
+      });
       image.setAttribute("aria-hidden", "true");
       choice.prepend(image);
     }
@@ -2607,7 +2669,7 @@ async function loadSource(keepRecord = false) {
   fileLabel.hidden = !local;
   refreshChoices(trackSelect, []);
   if ((local && !localSource) || (!local && !songSelect.value)) {
-    status.textContent = local ? "选择一个 .mid 或 .midi 文件。" : "找不到 POP909。可导入本地 MIDI。";
+    status.textContent = local ? "选择 MIDI 或 MusicXML 文件。" : "找不到 POP909。可导入本地乐谱。";
     return;
   }
   const controller = new AbortController();

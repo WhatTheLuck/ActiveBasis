@@ -9,6 +9,8 @@ import re
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
+from preview_assets import preview_html
+
 
 def annotation_packet(song_id, track):
     if not re.fullmatch(r"[0-9]{3}", str(song_id)):
@@ -284,6 +286,7 @@ class PlaybackRecorder:
         script = (web / "player.js").read_text(encoding="utf-8")
         embedded_data = data.replace("<", "\\u003c")
         html = html.replace('<link rel="stylesheet" href="./player.css">', f"<style>{styles}</style>")
+        html = html.replace('<script defer src="/music-preview/preview.js"></script>', preview_html())
         html = html.replace(
             '<script type="module" src="./player.js"></script>',
             f'<script id="training-data" type="application/json">{embedded_data}</script>\n'
