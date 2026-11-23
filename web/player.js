@@ -2566,15 +2566,22 @@ function sharedAnnotationTrack() {
   return sharedApi.referenceTrack(sharedReference, signature);
 }
 
+function sharedAnnotationSelection() {
+  const track = sharedAnnotationTrack();
+  if (!sharedReference) return { track, segments: [], window: null };
+  const layer = sharedControls.setTrackLayers(track);
+  const segments = sharedApi.referenceSegments({ ...sharedReference, layer }, track);
+  return { track, segments, window: sharedApi.referenceWindow(segments) };
+}
+
 function updateSharedScore() {
   if (!sharedReference || !sharedControls) return;
   if (sourceMode.value !== "local" || localSource !== sharedSource) {
     sharedControls.setScore("当前 MIDI 与所加载的标注不同。");
     return;
   }
-  const track = sharedAnnotationTrack();
-  const segments = sharedApi.referenceSegments(sharedReference, track);
-  if (!segments.length) {
+  const { track, segments, window } = sharedAnnotationSelection();
+  if (!window) {
     sharedControls.setScore("当前音轨在所选层没有可对齐的人工标注。");
     return;
   }
@@ -2585,12 +2592,16 @@ function updateSharedScore() {
     return;
   }
   const scale = beatResolution() / sharedReference.document.timing.sourcePpq;
-  const project = (note) => sharedApi.quantizedNote(note, scale);
-  const notes = track.notes.map(project);
+  const project = (note) => sharedApi.projectWindowNote(note, window, scale, 0);
+  const notes = track.notes.map(project).filter(Boolean);
+  const leftEdge = sharedApi.roundEven(window[0] * scale);
+  const rightEdge = Math.max(leftEdge + 1, sharedApi.roundEven(window[1] * scale));
   const tickOffset = song.tickOrigin - song.timePad;
-  const matches = round.matches.filter((match) => match.song === state.song);
+  const matches = round.matches.filter(({ song: index, box: [left, , right] }) =>
+    index === state.song && left + tickOffset < rightEdge && right + tickOffset > leftEdge);
   const boxes = matches.map(({ box: [left, low, right, high] }) =>
-    [left + tickOffset, low + song.pitchOrigin, right + tickOffset, high + song.pitchOrigin]);
+    [Math.max(leftEdge, left + tickOffset), low + song.pitchOrigin,
+      Math.min(rightEdge, right + tickOffset), high + song.pitchOrigin]);
   const groups = sharedApi.groupsInBoxes(notes, boxes);
   const predictions = matches.map((match, index) => ({
     categoryId: match.template, noteIds: groups[index], box: boxes[index],
@@ -2624,6 +2635,12 @@ async function initializeSharedAnnotations() {
       },
       onChange(reference) {
         sharedReference = reference;
+        if (reference && sourceReady && localSource === sharedSource) {
+          resetSource();
+          sourceReady = true;
+          schedule(trainingJob, 0);
+          updatePreview();
+        }
         loadInputAnnotations();
         updateSharedScore();
       },
@@ -2652,8 +2669,8 @@ async function initializeSharedAnnotations() {
 async function loadInputAnnotations() {
   clearInputAnnotations();
   if (sourceMode.value === "local" && localSource === sharedSource && sharedReference) {
-    const track = sharedAnnotationTrack();
-    const instances = sharedApi.referenceSegments(sharedReference, track).map(({ categoryId, color, notes }) => ({
+    const { segments } = sharedAnnotationSelection();
+    const instances = segments.map(({ categoryId, color, notes }) => ({
       group: categoryId, color,
       notes: notes.map((note) => [note.midi, note.ticks, note.ticks + Math.max(1, note.durationTicks)]),
     }));
@@ -2697,7 +2714,9 @@ function resetSource(keepRecord = false) {
 }
 
 function activeSource() {
-  return sourceMode.value === "local" ? { midi: localSource.encoded }
+  return sourceMode.value === "local" ? {
+    midi: localSource.encoded, annotationRange: sharedAnnotationSelection().window,
+  }
     : { id: songSelect.value };
 }
 
@@ -2752,6 +2771,7 @@ async function loadSource(keepRecord = false) {
       state.song = 0;
       updateData(emptyData);
     }
+    if (local && localSource.annotationDocument && localSource !== sharedSource) return;
     if (!data.rounds.length || parametersEdited) schedule(trainingJob, 0);
     await Promise.all([updatePreview(), loadInputAnnotations()]);
   } catch (error) {

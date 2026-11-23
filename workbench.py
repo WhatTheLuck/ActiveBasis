@@ -311,8 +311,14 @@ def run(request):
     resolution = bounded(settings, "resolution", TICKS_PER_BEAT, 4, 96)
     candidate_height = round((config.initial_shape[0] - 1) * max(config.pitch_scales)) + config.blur_size
     minimum_pitch_range = bounded(settings, "minPitchRange", candidate_height, 0, 128)
+    annotation_range = request.get("annotationRange")
+    if annotation_range is not None and (
+            not isinstance(annotation_range, list) or len(annotation_range) != 2 or
+            not all(type(value) is int for value in annotation_range) or
+            not 0 <= annotation_range[0] < annotation_range[1] <= 2**53 - 1):
+        raise ValueError("标注时间范围无效")
     song = load_song(midi, None, track, config.blur_size, ticks_per_beat=resolution,
-                     minimum_pitch_range=minimum_pitch_range)
+                     minimum_pitch_range=minimum_pitch_range, annotation_range=annotation_range)
     if action == "preview":
         return pack_preview(song, config, resolution)
     if action not in ("train", "continue"):

@@ -74,18 +74,32 @@ def quantize(ticks, source_resolution, ticks_per_beat=TICKS_PER_BEAT):
 
 
 def load_song(midi_path, label_path, track_number, blur_size, *, ticks_per_beat=TICKS_PER_BEAT,
-              minimum_pitch_range=MINIMUM_PITCH_RANGE):
+              minimum_pitch_range=MINIMUM_PITCH_RANGE, annotation_range=None):
     resolution, pitches, starts, ends = load_track(midi_path, track_number)
     if resolution <= 0:
         raise ValueError("Only MIDI files with beat-based timing are supported")
+    if annotation_range is not None:
+        left, right = annotation_range
+        ends = np.maximum(starts + 1, ends)
+        keep = (starts < right) & (ends > left)
+        if not keep.any():
+            raise ValueError("标注时间范围内没有音符")
+        pitches = pitches[keep]
+        starts, ends = np.maximum(starts[keep], left), np.minimum(ends[keep], right)
     lengths = quantize(ends - starts, resolution, ticks_per_beat)
     starts = quantize(starts, resolution, ticks_per_beat)
     ends = quantize(ends, resolution, ticks_per_beat)
     pitch_origin = int(pitches.min())
     tick_origin = int(starts.min())
     height = int(pitches.max()) - pitch_origin + 1
-    # Preserve the trailing space of the original training roll.
-    end_tick = max(int(ends.max() + lengths[-1]), int((starts + lengths).max()), int(starts.max()))
+    if annotation_range is None:
+        # Preserve the trailing space of the original training roll.
+        end_tick = max(int(ends.max() + lengths[-1]), int((starts + lengths).max()), int(starts.max()))
+    else:
+        tick_origin, right_tick = quantize(annotation_range, resolution, ticks_per_beat).tolist()
+        end_tick = max(tick_origin, right_tick - 1)
+        starts = np.minimum(starts, end_tick)
+        lengths = np.minimum(end_tick + 1, np.maximum(starts + 1, ends)) - starts
     extra_pitches = max(0, minimum_pitch_range - height)
     time_pad = blur_size // 2 if extra_pitches else 0
     pitch_pad = 2 * ((extra_pitches + 1) // 2)
