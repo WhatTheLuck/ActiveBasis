@@ -140,6 +140,17 @@ def average_iou(expected, predicted):
     return float(scores[rows, columns].mean())
 
 
+def annotation_scores(expected_boxes, predicted_boxes, expected_labels, predicted_labels):
+    """Score segmentation and clustering independently of roll reconstruction."""
+    expected_classes = np.unique(expected_labels, return_inverse=True)[1]
+    predicted_classes = np.unique(predicted_labels, return_inverse=True)[1]
+    return (
+        average_iou(expected_boxes, predicted_boxes),
+        adjusted_rand_score(expected_classes, predicted_classes),
+        *homogeneity_completeness_v_measure(expected_classes, predicted_classes),
+    )
+
+
 def evaluate(songs, matches, reconstructions):
     scores = []
     for song, song_matches, reconstruction in zip(songs, matches, reconstructions):
@@ -151,8 +162,7 @@ def evaluate(songs, matches, reconstructions):
                 & (bottom <= song.pitches) & (song.pitches < top)
             )
             predicted[inside] = match.template_id
-        iou = average_iou(song.boxes, [match.box for match in song_matches])
-        cluster_metrics = homogeneity_completeness_v_measure(song.labels, predicted)
+        annotation = annotation_scores(song.boxes, [match.box for match in song_matches], song.labels, predicted)
         rmse = np.sqrt(np.mean((song.roll - reconstruction) ** 2))
-        scores.append((iou, adjusted_rand_score(song.labels, predicted), *cluster_metrics, rmse))
+        scores.append((*annotation, rmse))
     return np.mean(scores, axis=0)

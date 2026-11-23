@@ -1996,13 +1996,14 @@ inputAnnotationGroup.setAttribute("aria-label", "标注类别");
 let activeAnnotationGroup = "";
 const songLabel = field("曲目", songSelect, "切换 POP909 曲目会载入新乐谱并重新训练。");
 const fileLabel = field("导入乐谱", upload, "支持 MIDI、MusicXML 和压缩 MusicXML。导入后可选择音轨。");
+const sourceLabel = field("来源", sourceMode, "选择从 POP909 曲库读取，或导入本地 MIDI。");
 const trainButton = button("运行训练", "action-button primary");
 const cancelButton = button("取消训练", "action-button cancel-training");
 cancelButton.hidden = true;
 trainButton.type = "submit";
 let localSource = null;
 let sourceTracks = [];
-let sharedApi, sharedControls, sharedReference, sharedSource;
+let sharedApi, sharedControls, sharedReference, sharedSource, midiPicker;
 let sourceRequest = null;
 let inputAnnotationRequest = null;
 let inputAnnotations = null;
@@ -2182,8 +2183,7 @@ function launchControls() {
   }
   kernelControls.prepend(...kernelFields);
   refreshChoices(sourceMode, [["POP909", "pop"], ["本地 MIDI", "local"]]);
-  sourceRow.append(field("来源", sourceMode, "选择从 POP909 曲库读取，或导入本地 MIDI。"),
-    songLabel, fileLabel, field("音轨", trackSelect, "切换量化预览和训练所用的 MIDI 音轨。"),
+  sourceRow.append(sourceLabel, songLabel, fileLabel, field("音轨", trackSelect, "切换量化预览和训练所用的 MIDI 音轨。"),
     parameter("resolution", "TPB", "每拍刻度数（Ticks Per Beat）。越大，量化越细，同样长的乐谱占用的时间格越多。", 24, 4, 96));
   fileLabel.hidden = true;
   inputAnnotationRow.classList.add("annotation-controls");
@@ -2276,6 +2276,7 @@ function launchControls() {
     updatePreview();
   });
   previewAudio.attachImport(upload, async (file) => {
+    sourceMode.value = "local";
     localSource = { name: file.name, file, encoded: null };
     await loadSource();
   }, (message) => { status.textContent = message; });
@@ -2584,24 +2585,32 @@ function updateSharedScore() {
     return;
   }
   const scale = beatResolution() / sharedReference.document.timing.sourcePpq;
-  const notes = track.notes.map((note) => sharedApi.quantizedNote(note, scale));
+  const project = (note) => sharedApi.quantizedNote(note, scale);
+  const notes = track.notes.map(project);
   const tickOffset = song.tickOrigin - song.timePad;
-  const boxes = round.matches.filter((match) => match.song === state.song)
-    .map(({ box: [left, low, right, high] }) =>
-      [left + tickOffset, low + song.pitchOrigin, right + tickOffset, high + song.pitchOrigin]);
-  const predictions = sharedApi.groupsInBoxes(notes, boxes);
-  const counts = sharedApi.fragmentCounts(segments.map((segment) => segment.noteIds), predictions);
+  const matches = round.matches.filter((match) => match.song === state.song);
+  const boxes = matches.map(({ box: [left, low, right, high] }) =>
+    [left + tickOffset, low + song.pitchOrigin, right + tickOffset, high + song.pitchOrigin]);
+  const groups = sharedApi.groupsInBoxes(notes, boxes);
+  const predictions = matches.map((match, index) => ({
+    categoryId: match.template, noteIds: groups[index], box: boxes[index],
+  }));
+  const counts = sharedApi.fragmentCounts(segments.map((segment) => segment.noteIds), groups);
   sharedControls.setScore(sharedApi.formatScores(counts, `第 ${state.round + 1} 轮`));
+  const manual = segments.map((segment) => ({ ...segment, notes: segment.notes.map(project) }));
+  sharedControls.compare([sharedApi.comparisonTrack(notes, manual, predictions)]);
 }
 
 async function initializeSharedAnnotations() {
-  if (!new URLSearchParams(location.search).has("workspace")) return;
+  const toolbar = window.frameElement?.ownerDocument.getElementById("activebasis-source-slot");
+  if (!toolbar) return;
   const mount = element("div", "");
   inputAnnotationRow.before(mount);
   try {
     const moduleUrl = new URL("/shared-annotations.mjs", location.origin).href;
     sharedApi = await import(/* @vite-ignore */ moduleUrl);
     sharedControls = sharedApi.mountAnnotationControls(mount, {
+      toolbar,
       async onLoad(annotationDocument, file) {
         sourceMode.value = "local";
         upload.value = "";
@@ -2619,6 +2628,22 @@ async function initializeSharedAnnotations() {
         updateSharedScore();
       },
     });
+    midiPicker = sharedApi.mountMidiPicker(toolbar, {
+      input: upload,
+      onPreset(id) {
+        songSelect.value = id;
+        sourceMode.value = "pop";
+        loadSource();
+      },
+    });
+    const presets = element("optgroup", "");
+    presets.label = "POP909 预置曲目";
+    presets.append(...Array.from(songSelect.options, (option) => option.cloneNode(true)));
+    midiPicker.setPresets([presets]);
+    const download = upload.nextElementSibling;
+    if (download?.matches(".mw-converted-midi")) toolbar.append(download);
+    sourceLabel.hidden = songLabel.hidden = fileLabel.hidden = true;
+    syncMidiPicker();
   } catch (error) {
     mount.textContent = error.message;
   }
@@ -2676,12 +2701,21 @@ function activeSource() {
     : { id: songSelect.value };
 }
 
+function syncMidiPicker() {
+  if (sourceMode.value === "local") {
+    midiPicker?.setSelection("", localSource?.annotationDocument?.song.name ?? localSource?.name);
+  } else {
+    midiPicker?.setSelection(songSelect.value);
+  }
+}
+
 async function loadSource(keepRecord = false) {
   sourceTracks = [];
   resetSource(keepRecord);
   const local = sourceMode.value === "local";
-  songLabel.hidden = local;
-  fileLabel.hidden = !local;
+  songLabel.hidden = Boolean(midiPicker) || local;
+  fileLabel.hidden = Boolean(midiPicker) || !local;
+  syncMidiPicker();
   refreshChoices(trackSelect, []);
   if ((local && !localSource) || (!local && !songSelect.value)) {
     status.textContent = local ? "选择 MIDI 或 MusicXML 文件。" : "找不到 POP909。可导入本地乐谱。";

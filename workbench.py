@@ -266,6 +266,19 @@ def continue_playback(request):
 
 def run(request):
     action = request["action"]
+    if action == "annotation-metrics":
+        import numpy as np
+        from song_data import METRIC_NAMES, annotation_scores
+
+        tracks = request["tracks"]
+        if not tracks:
+            raise ValueError("没有可对齐的人工标注。")
+        scores = [
+            annotation_scores(track["manualBoxes"], track["predictedBoxes"],
+                              track["manualLabels"], track["predictedLabels"])
+            for track in tracks
+        ]
+        return dict(zip(METRIC_NAMES[:-1], np.mean(scores, axis=0).tolist()))
     if action == "catalog":
         return catalog()
     if action == "examples":
