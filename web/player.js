@@ -1563,6 +1563,7 @@ function iterationHistogram(groups, dictionary, { title, detailId, scope, nameFo
   };
   const grid = captureBins(groups, dictionary, { inspect, nameFor });
   if (groupColors) {
+    stack.classList.add("annotation-captures");
     for (const [index, bin] of [...grid.children].entries()) {
       bin.classList.add("annotation-capture-bin");
       bin.style.setProperty("--annotation-color", groupColors[index]);
@@ -1633,8 +1634,6 @@ function refreshIterations() {
     annotations = column;
     comparedAnnotationPacket = packet;
     watchPlots(annotations);
-    const stack = annotations.querySelector(".iteration-captures");
-    if (stack) stack.scrollTop = stack.scrollHeight;
   }
   while (iterationStates.childElementCount > count + 1) {
     const lastRound = annotations.previousElementSibling;
@@ -2193,14 +2192,14 @@ function launchControls() {
   byStage("input").parts.controls.append(parameterPanel("输入与量化", sourceRow), inputAnnotationRow, status, provenance);
   parameterGroup("trials", "候选生成与变体",
     parameter("words", "初始单词数", "首轮预留的字典槽位。调大可容纳更多单词，也会增加候选筛选和匹配开销。", 4, 1, 12),
+    parameter("scales", "音高缩放倍率", "用逗号分隔倍率。1 保留原音程，小于 1 压缩间距，大于 1 拉开间距。每个倍率都参与匹配。", "1, 0.8, 1.2"),
+    parameter("seed", "随机种子", "决定随机候选的生成序列。相同输入和参数下，固定种子可复现结果，换值可尝试另一组候选。", 37, 0, 4294967295),
     pairedParameter("初始单词形状", "随机候选的音高跨度与音符起点采样范围。",
       [["height", "音高（半音）", 10, 2, 32], ["width", "时间（格）", 20, 2, 96]]),
     pairedParameter("音符（基元）数上下限", "每个随机候选抽取的基元数范围。",
       [["noteMin", "下限", 5, 1, 20], ["noteMax", "上限", 9, 1, 20]], [1, 20]),
     pairedParameter("音符（基元）时长上下限", "随机采样的时长范围，单位为格。采样后减去该候选的最短时长。",
       [["durationMin", "下限", 1, 0, 96], ["duration", "上限", 19, 0, 96]], [0, 96]),
-    parameter("scales", "音高缩放倍率", "用逗号分隔倍率。1 保留原音程，小于 1 压缩间距，大于 1 拉开间距。每个倍率都参与匹配。", "1, 0.8, 1.2"),
-    parameter("seed", "随机种子", "决定随机候选的生成序列。相同输入和参数下，固定种子可复现结果，换值可尝试另一组候选。", 37, 0, 4294967295),
   );
   parameterGroup("trials", "去重与入选",
     parameter("attempts", "每个位置最多尝试", "每个空槽最多生成的候选数。调高有更多机会填上空槽，也可能让筛选耗时更长。", 200, 1, 500),

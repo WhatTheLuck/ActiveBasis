@@ -373,6 +373,27 @@ canvas { display: block; width: 100%; }
   width: 12px; height: 12px; border-radius: 50%;
   border: 1px solid var(--accent); background: var(--surface); pointer-events: auto;
 }
+#stage-trials [data-part="controls"] {
+  max-inline-size: 900px;
+  container: initial-dictionary / inline-size;
+}
+#stage-trials .parameter-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px 20px;
+  padding-block: 4px 8px;
+}
+#stage-trials .control-field { grid-template-columns: minmax(0, 1fr); }
+#stage-trials .control-field:has(> .parameter-slider:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+#stage-trials .parameter-label { grid-column: 1 / -1; }
+#stage-trials .paired-values { width: min(100%, 180px); }
+@container initial-dictionary (min-width: 330px) {
+  #stage-trials .parameter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container initial-dictionary (min-width: 650px) {
+  #stage-trials .parameter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
 #stage-learning .parameter-grid {
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
 }
@@ -636,6 +657,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   min-height: 100%; grid-auto-columns: minmax(104px, 1fr); gap: 8px;
 }
 .iteration-captures .capture-stack canvas { max-height: 16px; }
+.annotation-captures { height: auto; overflow-y: hidden; }
 .annotation-capture-bin .capture-stack canvas { border-inline-start: 3px solid var(--annotation-color); }
 .iteration-captures .capture-bin-label { background: var(--surface); }
 .capture-bin-trigger {
