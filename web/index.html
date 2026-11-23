@@ -11,6 +11,8 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="brand">
+        <button id="stage-toggle" class="stage-toggle" type="button" aria-controls="stages"
+          aria-expanded="true" aria-label="收起训练流程" title="收起训练流程"></button>
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
         <strong>ActiveBasis</strong>
       </div>
@@ -34,8 +36,6 @@
   </header>
   <div class="layout">
     <aside class="sidebar">
-      <button id="stage-toggle" class="stage-toggle" type="button" aria-controls="stages"
-        aria-expanded="true" aria-label="收起训练流程" title="收起训练流程"></button>
       <nav id="stages" aria-label="训练流程"></nav>
       <label class="mobile-stage">训练阶段
         <select id="stage-select"><option value="" disabled hidden>选择训练阶段</option></select>
