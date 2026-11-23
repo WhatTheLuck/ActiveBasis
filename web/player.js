@@ -2394,7 +2394,7 @@ return IoU, ARI, 同质性, 完整性, V值, RMSE`],
 };
 
 function syncAlgorithmControls() {
-  for (const { source, input, blurKind } of algorithmControls) {
+  for (const { source, input, slider, blurKind } of algorithmControls) {
     // Do not interrupt partial numeric input or move the text caret while typing.
     if (document.activeElement !== input) input.value = source.value;
     input.disabled = source.disabled;
@@ -2403,6 +2403,12 @@ function syncAlgorithmControls() {
       input.value = blurSettings(blurKind)[source.name === "blur" ? 0 : 1];
     }
     input.setAttribute("aria-invalid", String(!source.validity.valid));
+    if (slider) {
+      if (input.validity.valid && input.value !== "") slider.value = input.value;
+      slider.disabled = source.disabled;
+      slider.hidden = source.disabled;
+      slider.setAttribute("aria-valuetext", input.value || "未填写");
+    }
   }
 }
 
@@ -2433,8 +2439,28 @@ function algorithmControl(reference) {
     if (source.tagName === "SELECT") input.replaceChildren(...[...source.options].map(option => option.cloneNode(true)));
     syncAlgorithmControls();
   }).observe(source, { attributes: true, childList: true, subtree: true });
-  algorithmControls.push({ source, input, blurKind });
-  return input;
+  let slider;
+  // Small bounded ranges suit dragging; seeds, large counts and lists stay typed.
+  if (source.type === "number" && source.max && Number(source.max) <= 100) {
+    slider = element("input", "algorithm-slider");
+    slider.type = "range";
+    slider.min = source.min;
+    slider.max = source.max;
+    slider.step = source.step;
+    slider.value = source.value;
+    slider.setAttribute("form", "algorithm-display");
+    slider.setAttribute("aria-label", `${label} · 滑动调节`);
+    slider.title = input.title;
+    slider.addEventListener("input", () => {
+      input.value = slider.value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
+  algorithmControls.push({ source, input, slider, blurKind });
+  if (!slider) return input;
+  const pair = element("span", "algorithm-parameter");
+  pair.append(slider, input);
+  return pair;
 }
 
 function launchAlgorithms() {

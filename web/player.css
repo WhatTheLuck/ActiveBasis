@@ -69,6 +69,16 @@ body { margin: 0; }
 .algorithm .algorithm-input:hover:not(:disabled) { border-color: var(--accent); }
 .algorithm .algorithm-input[aria-invalid="true"] { outline: 2px solid var(--metric-1); }
 .algorithm .algorithm-input:disabled { opacity: 1; color: var(--muted); cursor: default; }
+.algorithm-parameter {
+  display: inline-flex; align-items: center; gap: 5px;
+  max-width: 100%; margin: 0 3px; vertical-align: middle;
+}
+.algorithm .algorithm-parameter .algorithm-input { margin-inline: 0; }
+.algorithm .algorithm-slider {
+  width: 76px; min-width: 48px; height: 28px; margin: 0;
+  padding: 0; accent-color: var(--accent); vertical-align: middle;
+}
+.algorithm-slider[hidden] { display: none; }
 .algorithm-settings { margin: 0 0 18px; }
 .algorithm-settings > summary { width: fit-content; cursor: pointer; color: var(--muted); font-size: .8rem; }
 .algorithm-settings[open] > summary { margin-bottom: 12px; }
@@ -76,6 +86,7 @@ body { margin: 0; }
   .algorithm { padding: 12px 10px; }
   .algorithm-lines { font-size: .85rem; line-height: 2; }
   .algorithm-line { padding-left: 3px; }
+  .algorithm .algorithm-slider { width: 58px; }
 }
 button, input, select { font: inherit; }
 button, select, input[type="range"] { cursor: pointer; }
