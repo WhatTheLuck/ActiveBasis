@@ -1487,6 +1487,16 @@ function viewTrialComparisons(view, round, trial) {
   view.append(section);
 }
 
+const idealSimilarities = new Map([
+  ["完全相同", "最高"],
+  ["整体平移", "与完全相同等值"],
+  ["单词音符较少", "低于完全相同"],
+  ["单词音符较多", "低于完全相同"],
+  ["微调起点和时长", "低于完全相同，但仍较高"],
+  ["一个音符音高改变", "低于完全相同"],
+  ["音高方向反转", "较低"],
+]);
+
 function viewSimilarity(view) {
   if (!similarityExamples.length) {
     view.append(element("p", "stage-status", live ? "正在计算匹配样例…" : "暂无匹配样例。"));
@@ -1516,7 +1526,9 @@ function viewSimilarity(view) {
     if (map) {
       const [pitch, tick] = map.position;
       const rmse = result.rmse == null ? "" : ` · RMSE ${number(result.rmse)}`;
-      const peak = `峰值 ${number(result.response)}${rmse} · ${pitchMultiplier(result.scale)} · 音高 ${pitch + map.origin} 半音，时间 ${tick + map.origin} tick`;
+      const ideal = idealSimilarities.get(example.label);
+      const expectation = ideal ? ` · 理想相似度：${ideal}` : "";
+      const peak = `峰值 ${number(result.response)}${rmse}${expectation} · ${pitchMultiplier(result.scale)} · 音高 ${pitch + map.origin} 半音，时间 ${tick + map.origin} tick`;
       const chart = element("div", "similarity-response");
       chart.append(figure("匹配响应图", map.matrix, {
         ...axes, heat: true, heatBounds, pitchOrigin: map.origin, tickOffset: map.origin,
