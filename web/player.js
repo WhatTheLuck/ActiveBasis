@@ -1296,6 +1296,7 @@ function metricsChart(indices, height, rows) {
     let max = 1 / scale;
     for (const row of rows) {
       for (const index of indices) {
+        if (row[index] == null) continue;
         min = Math.min(min, Math.floor(row[index] * scale) / scale);
         max = Math.max(max, Math.ceil(row[index] * scale) / scale);
       }
@@ -1323,11 +1324,13 @@ function metricsChart(indices, height, rows) {
       context.lineWidth = 1.7;
       context.beginPath();
       rows.forEach((row, round) => {
-        if (round === 0) context.moveTo(x(round), y(row[index]));
+        if (row[index] == null) return;
+        if (rows[round - 1]?.[index] == null) context.moveTo(x(round), y(row[index]));
         else context.lineTo(x(round), y(row[index]));
       });
       context.stroke();
       rows.forEach((row, round) => {
+        if (row[index] == null) return;
         context.beginPath();
         context.arc(x(round), y(row[index]), round === last ? 4 : 2.7, 0, 2 * Math.PI);
         context.fill();
@@ -1509,7 +1512,9 @@ function refreshIterations() {
   }
   const legend = element("div", "details-bar iteration-legend");
   for (const [id, name] of data.metricNames.entries()) {
-    const label = element("strong", "", `${name} ${number(rows.at(-1)[id])}`);
+    const value = rows.at(-1)[id];
+    const label = element("strong", "", `${name} ${value == null ? "—" : number(value)}`);
+    if (value == null) label.title = "此轮缺少计算该指标所需的逐音符标注";
     label.style.color = `var(--metric-${id})`;
     legend.append(label);
   }
@@ -2174,15 +2179,19 @@ async function api(action, parameters, signal) {
 }
 
 const roundTimelines = [get("round"), get("iteration-steps")];
-const iterationNext = get("iteration-next");
+const nextRoundButtons = [get("top-round-next"), get("iteration-next")];
+
+function canContinue() {
+  return live && data.rounds.length > 0;
+}
 
 function openIterations() {
   if (iterationDialog.open) return;
   const iterationStatus = get("iteration-status");
-  if (!sourceReady) {
+  if (!sourceReady && !canContinue()) {
     iterationStatus.textContent = form.hidden ? "离线回放" : "在「乐谱量化」选择音轨后即可训练。";
   } else if (!iterationStatus.textContent && !trainingRun && data.rounds.length) {
-    iterationStatus.textContent = "当前为保存的回放。运行训练后，可逐轮继续训练。";
+    iterationStatus.textContent = "当前为保存的回放。到达最后一轮后，可继续训练。";
   }
   iterationDialog.showModal();
   syncRoundTimelines();
@@ -2191,9 +2200,11 @@ function openIterations() {
 
 function syncIterationNext() {
   const hasNext = state.round + 1 < data.rounds.length;
-  const canTrain = sourceReady && trainingRun !== null;
-  iterationNext.textContent = !hasNext && canTrain ? "训练下一轮" : "下一轮";
-  iterationNext.disabled = !hasNext && (!canTrain || trainingPending());
+  const canTrain = canContinue();
+  for (const button of nextRoundButtons) {
+    button.textContent = !hasNext && canTrain ? "训练下一轮" : "下一轮";
+    button.disabled = !hasNext && (!canTrain || trainingPending());
+  }
 }
 
 function syncRoundTimelines() {
@@ -2217,10 +2228,13 @@ function syncRoundTimelines() {
 
 get("open-iterations").addEventListener("click", openIterations);
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
-iterationNext.addEventListener("click", () => {
-  if (state.round + 1 < data.rounds.length) changeRun("round", state.round + 1);
-  else if (sourceReady && trainingRun && !trainingPending()) void runTraining(true);
-});
+for (const button of nextRoundButtons) {
+  button.addEventListener("click", () => {
+    if (state.round + 1 < data.rounds.length) changeRun("round", state.round + 1);
+    else if (canContinue() && !trainingPending()) void runTraining(true);
+    openIterations();
+  });
+}
 iterationDialog.addEventListener("close", () => {
   if (iterationDialog.open) return;
   clearPlots(iterationStates);
@@ -2429,7 +2443,6 @@ async function loadSource(keepRecord = false) {
     refreshChoices(trackSelect, tracks.map((track) =>
       [`${track.name || "音轨"} · ${track.id} · ${track.notes} 音符`, track.id]), preferred);
     sourceReady = true;
-    get("iteration-status").textContent = "";
     if (keepRecord && Number(trackSelect.value) !== data.track) {
       state.song = 0;
       updateData(emptyData);
@@ -2494,8 +2507,39 @@ async function computeExamples() {
   }
 }
 
+function playbackTrainingRequest(record) {
+  const last = record.rounds.at(-1);
+  const notes = Array.from({ length: last.dictionary.length }, () => []);
+  const dictionary = Array(last.dictionary.length).fill(null);
+  for (const entry of last.learning) {
+    if (entry.note) notes[entry.template].push(entry.note);
+    if (entry.result) dictionary[entry.template] = notes[entry.template];
+  }
+  let randomTrials = 0;
+  let lastRandomNotes;
+  for (const round of record.rounds) {
+    for (const trial of round.trials) {
+      if (!trial.learned) {
+        randomTrials++;
+        lastRandomNotes = trial.notes;
+      }
+    }
+  }
+  return {
+    seed: record.seed,
+    config: record.config ?? {
+      response_threshold: record.threshold, usefulness_threshold: record.usefulness,
+      uniqueness_threshold: record.uniqueness, merge_threshold: record.mergeThreshold,
+      spawn_ratio: record.spawnRatio, minimum_captures: record.minimumCaptures,
+      capture_margin: record.captureMargin, repulsion: record.repulsion,
+    },
+    songs: record.songs.map(({ roll, boxes }) => ({ roll, boxes })),
+    dictionary, randomTrials, lastRandomNotes, metricNames: record.metricNames,
+  };
+}
+
 async function runTraining(continuing = false) {
-  if (!sourceReady || (!continuing && !form.checkValidity())) {
+  if (continuing ? !canContinue() : !sourceReady || !form.checkValidity()) {
     if (sourceReady) {
       const field = [...form.elements].find(control => !control.validity.valid);
       const settings = get("iteration-settings");
@@ -2508,18 +2552,21 @@ async function runTraining(continuing = false) {
   }
   const controller = new AbortController();
   trainingJob.request = controller;
-  const request = continuing ? trainingRun.request : {
+  const freshRequest = continuing ? null : {
     ...activeSource(), track: Number(trackSelect.value), settings: settings(),
   };
-  const snapshot = request.settings;
+  const snapshot = freshRequest?.settings;
   controlsState();
   setTrainingStatus(continuing ? `正在训练第 ${data.rounds.length + 1} 轮…`
     : `正在计算 ${snapshot.rounds} 轮训练，完成后可逐步回放。`);
   try {
-    const { checkpoint, ...result } = await api(continuing ? "continue" : "train",
-      continuing ? { ...request, checkpoint: trainingRun.checkpoint } : request, controller.signal);
+    const action = continuing ? trainingRun?.action ?? "continue-playback" : "train";
+    const request = freshRequest ?? trainingRun?.request ?? playbackTrainingRequest(data);
+    const { checkpoint, ...result } = await api(action, { ...request,
+      checkpoint: continuing ? trainingRun?.checkpoint : undefined,
+    }, controller.signal);
     if (controller.signal.aborted) return;
-    trainingRun = checkpoint ? { request, checkpoint } : null;
+    trainingRun = { request, checkpoint, action: action === "train" ? "continue" : action };
     if (continuing) {
       data.rounds.push(...result.rounds);
       data.metrics.push(...result.metrics);
@@ -2608,9 +2655,10 @@ async function initialize() {
     setExamples(record.examples ?? []);
   }
   if (live) {
-    const selected = refreshChoices(songSelect, songs.map((song) => [`${song.name} · ${song.id}`, song.id]), currentSong()?.id);
-    if (!selected) sourceMode.value = "local";
-    await Promise.all([loadSource(selected !== "" && selected === currentSong()?.id), computeExamples()]);
+    const recordedSong = currentSong()?.id;
+    const selected = refreshChoices(songSelect, songs.map((song) => [`${song.name} · ${song.id}`, song.id]), recordedSong);
+    if (!selected || (recordedSong && recordedSong !== selected)) sourceMode.value = "local";
+    await Promise.all([loadSource(Boolean(record)), computeExamples()]);
   } else {
     refreshChoices(songSelect, data.songs.map((song, index) => [song.id, index]), 0);
     refreshChoices(trackSelect, record ? [[`音轨 ${record.track}`, record.track]] : [], record?.track);

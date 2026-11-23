@@ -54,7 +54,7 @@ npm run dev
 
 工作台从项目内的 `POP909-Dataset/POP909` 或同级实验目录 `Lab/MidiParser/POP909` 查找曲目和 `index.xlsx`。也可以在启动前用 `ACTIVE_BASIS_POP909` 指定数据目录。Python 默认使用项目的 `.venv`，可通过 `ACTIVE_BASIS_PYTHON` 指定解释器。
 
-开发页默认读取 `results/simple_sparse_code/` 中最近导出的 `Playback.html`。网页发起的训练结果保存在本次页面会话中。到达这次训练的最后一轮后，点「训练下一轮」可接着当前字典训练，并追加一个对照列。若回放保存在自定义目录，可在启动前指定文件。
+工作台默认读取 `results/simple_sparse_code/` 中最近导出的 `Playback.html`。点击顶部或「大轮次」窗口中的「下一轮」可浏览已有轮次。到达最后一轮后，点「训练下一轮」可接着该轮重学习后的字典再训练一轮，并自动选中新追加的对照列。已有回放和网页发起的训练都可以逐轮继续，新增轮次保存在当前页面会话中。回放续训会计算重构误差和已有标注框的平均交并比，需要逐音符标注的指标显示为「—」。若回放保存在自定义目录，可在启动前指定文件。
 
 ```powershell
 $env:ACTIVE_BASIS_PLAYBACK = "D:\experiments\1\Playback.html"

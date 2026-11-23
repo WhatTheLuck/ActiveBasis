@@ -153,18 +153,23 @@ def training_checkpoint(dictionary, rng):
     }
 
 
-def restore_training(checkpoint, song, config, rng):
+def restore_random(state, rng):
     import numpy as np
-    from active_basis import Basis, Template, render_notes
 
-    keys, position, has_gauss, gauss = checkpoint["random"]
+    keys, position, has_gauss, gauss = state
     if len(keys) != 624 or not 0 <= position <= 624 or has_gauss not in (0, 1):
         raise ValueError("续训的随机状态无效。")
     rng.set_state(("MT19937", np.asarray(keys, dtype=np.uint32), position, has_gauss, gauss))
-    height, width = song.roll.shape
+
+
+def restore_dictionary(slots, rolls, config):
+    from active_basis import Basis, Template, render_notes
+
+    height = max(roll.shape[0] for roll in rolls)
+    width = max(roll.shape[1] for roll in rolls)
     max_pitch = round((height - 1) / min(config.pitch_scales))
     dictionary = []
-    for slot in checkpoint["dictionary"]:
+    for slot in slots:
         if slot is None:
             dictionary.append(None)
             continue
@@ -181,6 +186,83 @@ def restore_training(checkpoint, song, config, rng):
     return dictionary
 
 
+def train_round(dictionary, rolls, config, rng, recorder):
+    from active_basis import encode, prepare_dictionary, relearn
+
+    if None not in dictionary:
+        dictionary.extend([None] * config.dictionary_growth)
+    recorder.start_round()
+    variants = prepare_dictionary(dictionary, rolls, rng, config, recorder)
+    recorder.prepared(dictionary, variants)
+    matches, reconstructions = encode(rolls, variants, config, recorder)
+    return relearn(rolls, matches, len(dictionary), config, recorder), matches, reconstructions
+
+
+def unpack_playback_roll(packet):
+    from base64 import b64decode
+    import numpy as np
+
+    width, height, low, high, encoded, *_ = packet
+    if width <= 0 or height <= 0 or (low, high) != (0, 2.55):
+        raise ValueError("回放的量化乐谱格式不支持续训。")
+    return np.frombuffer(b64decode(encoded, validate=True), dtype=np.uint8).reshape(height, width) / 100
+
+
+def playback_slots(slots):
+    # Relearning frames record each basis before the template is shifted to its origin.
+    dictionary = []
+    for notes in slots:
+        if notes is None:
+            dictionary.append(None)
+            continue
+        tick_origin = min(note[0] for note in notes)
+        pitch_origin = min(note[1] for note in notes)
+        dictionary.append([[pitch - pitch_origin, tick - tick_origin, duration]
+                           for tick, pitch, duration in notes])
+    return dictionary
+
+
+def continue_playback(request):
+    import numpy as np
+    from active_basis import LearningConfig, random_template
+    from playback import PlaybackRecorder
+    from song_data import average_iou
+
+    seed = bounded(request, "seed", 37, 0, 2**32 - 1)
+    config = LearningConfig(**request["config"])
+    songs = request["songs"]
+    rolls = [unpack_playback_roll(song["roll"]) for song in songs]
+    rng = np.random.RandomState(seed)
+    checkpoint = request.get("checkpoint")
+    if checkpoint is not None:
+        restore_random(checkpoint["random"], rng)
+        slots = checkpoint["dictionary"]
+    else:
+        # Each random candidate consumes one draw sequence. Reuse the original
+        # generator to recover its state without rerunning any score matching.
+        actual = None
+        for _ in range(request["randomTrials"]):
+            candidate = random_template(rng, config)
+        expected = request.get("lastRandomNotes")
+        if request["randomTrials"]:
+            actual = [[note.tick, note.pitch, note.duration] for note in candidate.notes]
+        if expected and actual != expected:
+            raise ValueError("无法恢复此回放的随机状态。")
+        slots = playback_slots(request["dictionary"])
+    dictionary = restore_dictionary(slots, rolls, config)
+    recorder = PlaybackRecorder(None, None, seed, None, config, rounds_only=True)
+    dictionary, matches, reconstructions = train_round(dictionary, rolls, config, rng, recorder)
+    metrics = {
+        "RMSE": float(np.mean([np.sqrt(np.mean((roll - reconstruction) ** 2))
+                              for roll, reconstruction in zip(rolls, reconstructions)])),
+    }
+    if all("boxes" in song for song in songs):
+        metrics["Average IOU"] = float(np.mean([average_iou(song["boxes"], [match.box for match in found])
+                                               for song, found in zip(songs, matches)]))
+    return recorder.data | {"metrics": [[metrics.get(name) for name in request["metricNames"]]],
+                            "checkpoint": training_checkpoint(dictionary, rng)}
+
+
 def run(request):
     action = request["action"]
     if action == "catalog":
@@ -189,6 +271,8 @@ def run(request):
         from playback import similarity_examples
 
         return similarity_examples(configuration(request.get("settings", {})))
+    if action == "continue-playback":
+        return continue_playback(request)
     midi = open_midi(request)
     from song_data import TICKS_PER_BEAT, load_song, load_track
 
@@ -203,7 +287,6 @@ def run(request):
         return tracks
 
     import numpy as np
-    from active_basis import encode, prepare_dictionary, relearn
     from playback import PlaybackRecorder, pack_preview
 
     settings = request.get("settings", {})
@@ -231,17 +314,17 @@ def run(request):
         recorder.data["minimumPitchRange"] = minimum_pitch_range
         recorder.data["songs"][0]["id"] = str(request.get("id") or "MIDI")
     rng = np.random.RandomState(seed)
-    dictionary = restore_training(request["checkpoint"], song, config, rng) if continuing else [None] * config.initial_templates
+    rolls = [song.roll]
+    if continuing:
+        checkpoint = request["checkpoint"]
+        restore_random(checkpoint["random"], rng)
+        dictionary = restore_dictionary(checkpoint["dictionary"], rolls, config)
+    else:
+        dictionary = [None] * config.initial_templates
     history = []
-    for index in range(count):
-        if (continuing or index) and None not in dictionary:
-            dictionary.extend([None] * config.dictionary_growth)
-        recorder.start_round()
-        variants = prepare_dictionary(dictionary, [song.roll], rng, config, recorder)
-        recorder.prepared(dictionary, variants)
-        matches, reconstructed = encode([song.roll], variants, config, recorder)
+    for _ in range(count):
+        dictionary, _, reconstructed = train_round(dictionary, rolls, config, rng, recorder)
         history.append([float(np.sqrt(np.mean((song.roll - reconstructed[0]) ** 2)))])
-        dictionary = relearn([song.roll], matches, len(dictionary), config, recorder)
     return recorder.data | {"metricNames": ["RMSE"], "metrics": history,
                             "checkpoint": training_checkpoint(dictionary, rng)}
 
