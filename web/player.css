@@ -558,7 +558,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   display: grid;
   grid-template-rows: auto auto auto auto;
   grid-auto-flow: column;
-  grid-auto-columns: min(100%, max(492px, (100% - 14px) / 2));
+  grid-auto-columns: calc((100% - 14px) / 2);
   gap: 12px 14px;
   overflow-x: auto;
   overscroll-behavior-inline: contain;
@@ -643,6 +643,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   .playback-dialog { width: calc(100% - 16px); }
   .playback-dialog-header, .playback-dialog-body { padding-inline: 11px; }
   .iteration-navigation > button { padding-inline: 7px; }
+  #iteration-states:not([hidden]) { grid-auto-columns: 100%; }
   #training-actions .action-button { padding-inline: 8px; min-height: 34px; font-size: .75rem; white-space: nowrap; }
   .train-actions:has(.cancel-training:not([hidden])) .primary { display: none; }
   .layout { display: block; padding: 0 13px 24px; }

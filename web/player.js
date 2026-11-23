@@ -1375,21 +1375,18 @@ function iterationState(round, index, song, wordDomain) {
   const raw = matrix(song.roll);
   const events = matchesFor(round);
   const { values, variants } = encodedThrough(round, song, events, events.length - 1);
-  const annotations = (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
   const results = events.map(event => {
     const [left, low] = event.box;
     const { width, height } = matrix(variants.get(variantName(event)).matrix);
     return { ...matchBox([left, low, left + width, low + height]), lineWidth: 1 };
   });
   const axes = { ...songAxes(song), height: 128 };
-  const scorePair = element("div", "iteration-score");
-  scorePair.append(
-    element("p", "iteration-caption", annotations.length ? `原始乐谱 · ${annotations.length} 个标注框` : "原始乐谱 · 无标注"),
-    plot("原始乐谱及标注方框", raw, { ...axes, boxes: annotations }),
+  const reconstructed = element("div", "iteration-score");
+  reconstructed.append(
     element("p", "iteration-caption", `重构乐谱 · ${results.length} 个结果框`),
     plot("重构乐谱及结果方框", { ...raw, values }, { ...axes, boxes: results }),
   );
-  score.append(scorePair);
+  score.append(reconstructed);
 
   const dictionary = element("section", "iteration-dictionary");
   dictionary.append(element("h4", "subheading", "字典状态"));
@@ -1400,6 +1397,22 @@ function iterationState(round, index, song, wordDomain) {
   });
   dictionary.append(element("p", "iteration-caption", learned ? "重学习后 · 原体" : "编码时 · 原体"), words);
   column.append(score, iterationCaptures(round, index), dictionary);
+  return column;
+}
+
+function iterationAnnotations(song) {
+  const column = element("article", "iteration-state");
+  column.append(element("h3", "", "标注结果"));
+  const section = element("section", "iteration-score-section");
+  section.append(element("h4", "subheading", "原始乐谱"));
+  const annotations = (song.boxes ?? []).map(box => ({ box, color: colors.capture, dashed: true, lineWidth: 1 }));
+  const score = element("div", "iteration-score");
+  score.append(
+    element("p", "iteration-caption", annotations.length ? `${annotations.length} 个标注框` : "无标注"),
+    plot("原始乐谱及标注方框", matrix(song.roll), { ...songAxes(song), height: 128, boxes: annotations }),
+  );
+  section.append(score);
+  column.append(section);
   return column;
 }
 
@@ -1477,27 +1490,26 @@ function refreshIterations() {
   if (previousTicks !== iterationWordDomain[0] || previousPitches !== iterationWordDomain[1]) {
     for (const canvas of iterationStates.querySelectorAll(".iteration-words canvas")) plotDrawers.get(canvas)();
   }
-  const count = song ? Math.min(state.round + 1, data.rounds.length) : 0;
+  const count = song ? data.rounds.length : 0;
   iterationStates.hidden = !count;
-  while (iterationStates.childElementCount > count) {
-    const last = iterationStates.lastElementChild;
-    clearPlots(last);
-    last.remove();
+  let annotations = iterationStates.lastElementChild;
+  if (count && !annotations) {
+    annotations = iterationAnnotations(song);
+    iterationStates.append(annotations);
+    watchPlots(annotations);
   }
-  for (let index = iterationStates.childElementCount; index < count; index++) {
+  const renderedRounds = Math.max(0, iterationStates.childElementCount - 1);
+  for (let index = renderedRounds; index < count; index++) {
     const column = iterationState(data.rounds[index], index, song, iterationWordDomain);
-    iterationStates.append(column);
+    annotations.before(column);
     const captureStack = column.querySelector(".iteration-captures");
     if (captureStack) captureStack.scrollTop = captureStack.scrollHeight;
     watchPlots(column);
   }
-  const active = iterationStates.lastElementChild;
+  const active = count ? iterationStates.children[state.round] : null;
   if (active) {
     for (const column of iterationStates.children) column.toggleAttribute("data-active", column === active);
-    const { left } = iterationStates.getBoundingClientRect();
-    const viewportRight = left + iterationStates.clientWidth;
-    const bounds = active.getBoundingClientRect();
-    iterationStates.scrollLeft += Math.min(0, bounds.left - left) + Math.max(0, bounds.right - viewportRight);
+    iterationStates.scrollLeft += active.getBoundingClientRect().left - iterationStates.getBoundingClientRect().left;
   }
   clearPlots(iterationTrend);
   if (!count) {
@@ -2226,7 +2238,11 @@ function syncRoundTimelines() {
   }
 }
 
-get("open-iterations").addEventListener("click", openIterations);
+get("open-iterations").addEventListener("click", () => {
+  const latest = data.rounds.length - 1;
+  if (latest >= 0 && latest !== state.round) changeRun("round", latest);
+  openIterations();
+});
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
 for (const button of nextRoundButtons) {
   button.addEventListener("click", () => {
@@ -2576,6 +2592,7 @@ async function runTraining(continuing = false) {
       return;
     }
     state.song = 0;
+    state.round = result.rounds.length - 1;
     if (sourceMode.value === "local") result.songs[0].id = localSource.name;
     inputPreview = result.songs[0].preview ?? null;
     cancel(exampleJob);
