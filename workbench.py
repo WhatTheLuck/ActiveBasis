@@ -1,6 +1,7 @@
 """Local MIDI workbench requests, transported as UTF-8 JSON over stdin/stdout."""
 
 import io
+from hashlib import sha256
 import json
 import os
 from pathlib import Path
@@ -280,10 +281,12 @@ def run(request):
         tracks = []
         for index, track in enumerate(midi.tracks):
             try:
-                _, pitches, _, _ = load_track(midi, index)
+                _, pitches, starts, ends = load_track(midi, index)
             except ValueError:
                 continue
-            tracks.append({"id": index, "name": track.name, "notes": len(pitches)})
+            notes = sorted(zip(starts.tolist(), ends.tolist(), pitches.tolist()))
+            signature = sha256(json.dumps(notes, separators=(",", ":")).encode("ascii")).hexdigest()
+            tracks.append({"id": index, "name": track.name, "notes": len(pitches), "signature": signature})
         return tracks
 
     import numpy as np

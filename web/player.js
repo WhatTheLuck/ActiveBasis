@@ -505,8 +505,8 @@ function annotationIndex() {
 function groupedAnnotations(version) {
   if (annotationGroups.has(version)) return annotationGroups.get(version);
   const colors = new Map();
-  const instances = version.instances.filter(({ notes }) => notes.length).map(({ group, notes }) => {
-    if (!colors.has(group)) colors.set(group, `hsl(${(40 + colors.size * 137.5) % 360} 85% 73%)`);
+  const instances = version.instances.filter(({ notes }) => notes.length).map(({ group, notes, color }) => {
+    if (!colors.has(group)) colors.set(group, color ?? `hsl(${(40 + colors.size * 137.5) % 360} 85% 73%)`);
     const pitches = notes.map(([pitch]) => pitch);
     return { group, notes, color: colors.get(group),
       start: Math.min(...notes.map(([, start]) => start)),
@@ -1806,6 +1806,7 @@ function changeRun(key, value, preservePosition = false) {
   }
   onScroll();
   refreshIterations();
+  updateSharedScore();
 }
 
 get("stage-select").addEventListener("change", (event) => {
@@ -1845,6 +1846,8 @@ const cancelButton = button("取消训练", "action-button cancel-training");
 cancelButton.hidden = true;
 trainButton.type = "submit";
 let localSource = null;
+let sourceTracks = [];
+let sharedApi, sharedControls, sharedReference, sharedSource;
 let sourceRequest = null;
 let inputAnnotationRequest = null;
 let inputAnnotations = null;
@@ -2391,8 +2394,84 @@ function clearInputAnnotations() {
   inputAnnotationRow.hidden = true;
 }
 
+function sharedAnnotationTrack() {
+  if (!sharedReference || sourceMode.value !== "local" || localSource !== sharedSource) return null;
+  const signature = sourceTracks.find((track) => track.id === Number(trackSelect.value))?.signature;
+  return sharedApi.referenceTrack(sharedReference, signature);
+}
+
+function updateSharedScore() {
+  if (!sharedReference || !sharedControls) return;
+  if (sourceMode.value !== "local" || localSource !== sharedSource) {
+    sharedControls.setScore("当前 MIDI 与所加载的标注不同。");
+    return;
+  }
+  const track = sharedAnnotationTrack();
+  const segments = sharedApi.referenceSegments(sharedReference, track);
+  if (!segments.length) {
+    sharedControls.setScore("当前音轨在所选层没有可对齐的人工标注。");
+    return;
+  }
+  const song = currentSong();
+  const round = currentRound();
+  if (!song || !round) {
+    sharedControls.setScore("训练完成后显示人工标注对照结果。");
+    return;
+  }
+  const scale = beatResolution() / sharedReference.document.timing.sourcePpq;
+  const notes = track.notes.map((note) => sharedApi.quantizedNote(note, scale));
+  const tickOffset = song.tickOrigin - song.timePad;
+  const boxes = round.matches.filter((match) => match.song === state.song)
+    .map(({ box: [left, low, right, high] }) =>
+      [left + tickOffset, low + song.pitchOrigin, right + tickOffset, high + song.pitchOrigin]);
+  const predictions = sharedApi.groupsInBoxes(notes, boxes);
+  const counts = sharedApi.fragmentCounts(segments.map((segment) => segment.noteIds), predictions);
+  sharedControls.setScore(sharedApi.formatScores(counts, `第 ${state.round + 1} 轮`));
+}
+
+async function initializeSharedAnnotations() {
+  if (!new URLSearchParams(location.search).has("workspace")) return;
+  const mount = element("div", "");
+  inputAnnotationRow.before(mount);
+  try {
+    const moduleUrl = new URL("/shared-annotations.mjs", location.origin).href;
+    sharedApi = await import(/* @vite-ignore */ moduleUrl);
+    sharedControls = sharedApi.mountAnnotationControls(mount, {
+      async onLoad(annotationDocument, file) {
+        sourceMode.value = "local";
+        upload.value = "";
+        const source = { name: file.name, file, encoded: null, annotationDocument };
+        localSource = source;
+        await loadSource();
+        if (source !== localSource || sourceMode.value !== "local" || !sourceReady) {
+          throw new Error("无法加载标注所用的 MIDI。");
+        }
+        sharedSource = source;
+      },
+      onChange(reference) {
+        sharedReference = reference;
+        loadInputAnnotations();
+        updateSharedScore();
+      },
+    });
+  } catch (error) {
+    mount.textContent = error.message;
+  }
+}
+
 async function loadInputAnnotations() {
   clearInputAnnotations();
+  if (sourceMode.value === "local" && localSource === sharedSource && sharedReference) {
+    const track = sharedAnnotationTrack();
+    const instances = sharedApi.referenceSegments(sharedReference, track).map(({ categoryId, color, notes }) => ({
+      group: categoryId, color,
+      notes: notes.map((note) => [note.midi, note.ticks, note.ticks + Math.max(1, note.durationTicks)]),
+    }));
+    inputAnnotations = { resolution: sharedReference.document.timing.sourcePpq, versions: { dictionary: { instances } } };
+    showInputAnnotationGroups();
+    updateSharedScore();
+    return;
+  }
   if (sourceMode.value !== "pop") return;
   const song = live ? songSelect.value : currentSong()?.id;
   const track = live ? Number(trackSelect.value) : data.track;
@@ -2441,6 +2520,7 @@ function activeSource() {
 }
 
 async function loadSource(keepRecord = false) {
+  sourceTracks = [];
   resetSource(keepRecord);
   const local = sourceMode.value === "local";
   songLabel.hidden = local;
@@ -2468,7 +2548,12 @@ async function loadSource(keepRecord = false) {
     const tracks = await api("tracks", activeSource(), controller.signal);
     if (controller.signal.aborted) return;
     if (!tracks.length) throw new Error("此 MIDI 中没有带完整音符的音轨。");
-    const preferred = keepRecord ? data.track : tracks.find((track) => track.id === 1)?.id;
+    sourceTracks = tracks;
+    const signatures = new Set(local && localSource.annotationDocument?.tracks
+      .filter((track) => track.layers.some((layer) => layer.words.some((word) => !word.automatic)))
+      .map((track) => track.signature) || []);
+    const annotated = tracks.find((track) => signatures.has(track.signature))?.id;
+    const preferred = keepRecord ? data.track : annotated ?? tracks.find((track) => track.id === 1)?.id;
     refreshChoices(trackSelect, tracks.map((track) =>
       [`${track.name || "音轨"} · ${track.id} · ${track.notes} 音符`, track.id]), preferred);
     sourceReady = true;
@@ -2688,6 +2773,7 @@ async function initialize() {
     const recordedSong = currentSong()?.id;
     const selected = refreshChoices(songSelect, songs.map((song) => [`${song.name} · ${song.id}`, song.id]), recordedSong);
     if (!selected || (recordedSong && recordedSong !== selected)) sourceMode.value = "local";
+    initializeSharedAnnotations();
     await Promise.all([loadSource(Boolean(record)), computeExamples()]);
   } else {
     refreshChoices(songSelect, data.songs.map((song, index) => [song.id, index]), 0);
