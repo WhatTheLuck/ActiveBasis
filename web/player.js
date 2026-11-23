@@ -988,7 +988,7 @@ function captureHistogram(view, round, panel) {
   }
 }
 
-function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor = templateName }) {
+function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor = templateName, topDown = false }) {
   const grid = element("div", "capture-grid");
   grid.style.setProperty("--capture-columns", columns);
   let maxRows = 1;
@@ -1017,8 +1017,9 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor
       summary.append(label);
     }
     const stack = element("ol", "capture-stack");
-    stack.reversed = true;
-    for (let index = captures.length - 1; index >= 0; index--) {
+    stack.reversed = !topDown;
+    for (let row = 0; row < captures.length; row++) {
+      const index = topDown ? row : captures.length - 1 - row;
       const capture = captures[index];
       const { crop, match } = capture;
       const item = element("li", match != null && match === latest ? "capture-added" : "");
@@ -1027,7 +1028,7 @@ function captureBins(groups, dictionary, { columns = 1, latest, inspect, nameFor
       item.append(plot(label, Array.isArray(crop) ? matrix(crop) : crop));
       stack.append(item);
     }
-    column.append(stack, summary);
+    column.append(...(topDown ? [summary, stack] : [stack, summary]));
     grid.append(column);
   }
   grid.style.setProperty("--capture-rows", maxRows);
@@ -1561,7 +1562,7 @@ function iterationHistogram(groups, dictionary, { title, detailId, scope, nameFo
     detail.append(title, gallery);
     watchPlots(detail);
   };
-  const grid = captureBins(groups, dictionary, { inspect, nameFor });
+  const grid = captureBins(groups, dictionary, { inspect, nameFor, topDown: true });
   if (groupColors) {
     stack.classList.add("annotation-captures");
     for (const [index, bin] of [...grid.children].entries()) {
@@ -1644,8 +1645,6 @@ function refreshIterations() {
   for (let index = renderedRounds; index < count; index++) {
     const column = iterationState(data.rounds[index], index, song, iterationWordDomain);
     annotations.before(column);
-    const captureStack = column.querySelector(".iteration-captures");
-    if (captureStack) captureStack.scrollTop = captureStack.scrollHeight;
     watchPlots(column);
   }
   const active = count ? iterationStates.children[state.round] : null;

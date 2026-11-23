@@ -709,10 +709,13 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   --capture-gap: 2px;
   min-height: 100%; grid-auto-columns: minmax(104px, 1fr); gap: 8px;
 }
+.iteration-captures .capture-stack { margin: 1px 0 auto; }
 .iteration-captures .capture-stack canvas { max-height: 16px; }
 .annotation-captures { height: auto; overflow-y: hidden; }
 .annotation-capture-bin .capture-stack canvas { border-inline-start: 3px solid var(--annotation-color); }
-.iteration-captures .capture-bin-label { background: var(--surface); }
+.iteration-captures .capture-bin-label {
+  top: 0; bottom: auto; border-top: 0; border-bottom: 1px solid var(--mw-strong-line, #9ab6a1);
+}
 .capture-bin-trigger {
   width: 100%; min-height: 32px; padding: 3px 6px;
   border: 1px solid var(--line); border-radius: 4px; background: var(--surface);
