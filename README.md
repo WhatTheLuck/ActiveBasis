@@ -8,18 +8,18 @@
 
 ## 运行
 
-在此目录使用 Python 3.11。MIDI 和标注直接从现有目录读取。
+在此目录使用 Python 3.11。仓库已包含完整的 POP909 数据、原始标注、网页标注和示例回放；数据目录与来源见 [DATA.md](DATA.md)。克隆后无需从其他本地项目复制数据。
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
 .\.venv\Scripts\python.exe SimpleSparseCode.py `
-  --pop909-dir "C:\Users\Admin\Desktop\Lab\MidiParser\POP909" `
-  --label-dir "C:\Users\Admin\Desktop\AAAI\音乐单词\Code\labeled data" `
+  --pop909-dir "POP909-Dataset/POP909" `
+  --label-dir "labeled data" `
   --song-ids 2 --rounds 2
 ```
 
-`--pop909-dir` 指向包含 `002/002.mid` 的目录。 `--label-dir` 指向包含 `T_dict/` 的目录，只加载来源可信的已有标注 pickle。默认 MIDI 音轨索引为 1，对应 `T_dict/2-0.pkl`。以 `--track-number 2` 运行时读取 `T_dict/2-1.pkl`。 `--help` 可查看参数。
+`--pop909-dir` 和 `--label-dir` 默认就是上述仓库内目录，也可省略。`--pop909-dir` 指向包含 `002/002.mid` 的目录。`--label-dir` 指向包含 `T_dict/` 的目录，只加载来源可信的已有标注 pickle。默认 MIDI 音轨索引为 1，对应 `T_dict/2-0.pkl`。以 `--track-number 2` 运行时读取 `T_dict/2-1.pkl`。`--help` 可查看参数。
 
 每次运行在 `results/simple_sparse_code/` 下创建编号目录，写出 `Parameters.csv` 和 `Metrics.csv`。 `--plot-metrics` 在训练结束后显示曲线。此版本使用 SciPy 在 CPU 上计算相关性，并让标注与填充后的卷帘共享坐标。与旧脚本比较时应重新计算实验结果。
 
@@ -38,7 +38,7 @@ py -3.11 -m venv .venv
 更新数据时，使用以下命令重新导出。输入目录应包含 `T_dict` 和 `Labeled Songs`，原始 `POP909` 默认位于其同级目录，也可通过 `--midi-root` 指定。请只导入可信来源的 pickle。
 
 ```powershell
-.\.venv\Scripts\python.exe export_annotations.py "C:\Users\Admin\Desktop\Lab\Texton-new\labeled data"
+.\.venv\Scripts\python.exe export_annotations.py "labeled data" --midi-root "POP909-Dataset/POP909"
 ```
 
 安装上述 Python 依赖，并使用 Node.js 22.12 或更新版本，在项目根目录运行。
