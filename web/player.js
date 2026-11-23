@@ -968,7 +968,8 @@ function captureHistogram(view, round, panel) {
   }
   const total = groups.reduce((sum, group) => sum + group.length, 0);
   const header = element("div", "capture-panel-heading");
-  header.append(element("h3", "subheading", "裁切数据集"), element("span", "capture-total", `累计 ${total} 个`));
+  header.append(element("h3", "subheading", "裁切数据集"), formulaTrigger("captures"),
+    element("span", "capture-total", `累计 ${total} 个`));
   const matchedWord = panel.matches[panel.step - 1]?.template;
   const update = added.length ? `本步 ${templateName(matchedWord)} +${added.length}`
     : panel.step ? "本步未新增片段" : "初始状态，尚未裁切";
@@ -1814,6 +1815,26 @@ function play(panel) {
   if (panel.key === "learning") followLearningWord(panel);
 }
 
+function formulaTrigger(key) {
+  const trigger = button("公式", "formula-trigger");
+  trigger.dataset.formulas = key;
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-label", get(`formulas-${key}`).dataset.title);
+  return trigger;
+}
+
+const formulaDialog = get("formula-dialog");
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("button[data-formulas]");
+  if (!trigger) return;
+  const template = get(`formulas-${trigger.dataset.formulas}`);
+  get("formula-title").textContent = template.dataset.title;
+  const content = get("formula-content");
+  content.replaceChildren(template.content.cloneNode(true));
+  formulaDialog.showModal();
+  content.scrollTop = 0;
+});
+
 function createPanel([key, title, description]) {
   const section = get("stage-template").content.firstElementChild.cloneNode(true);
   if (key === "similarity") {
@@ -1831,6 +1852,7 @@ function createPanel([key, title, description]) {
   section.setAttribute("aria-labelledby", parts.title.id);
   parts.title.textContent = title;
   parts.description.textContent = description;
+  if (get(`formulas-${key}`)) parts.title.parentElement.append(formulaTrigger(key));
   if (key === "variants") {
     parts.responseDictionary = get("response-dictionary");
     parts.responseDialog = get("response-dictionary-dialog");

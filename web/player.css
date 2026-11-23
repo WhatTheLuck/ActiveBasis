@@ -167,6 +167,12 @@ main { min-width: 0; padding-top: 22px; }
 .playback-stage + .playback-stage { border-top: 1px solid var(--line); margin-top: 35px; padding-top: 25px; }
 .stage-heading { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin: 0 0 17px; }
 .stage-heading h2 { margin: 0; font-size: 2.15rem; line-height: 1.28; letter-spacing: -.035em; }
+.stage-title, .formula-links { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.formula-trigger {
+  border: 1px solid var(--line); border-radius: 5px; padding: 2px 7px;
+  background: var(--surface); color: var(--accent); font: inherit; font-size: .76rem; cursor: pointer;
+}
+.formula-trigger:hover { border-color: var(--accent); background: var(--accent-light); }
 .stage-heading p { color: var(--muted); margin: 7px 0 0; max-width: 67ch; font-size: .9rem; }
 .stage-value { flex: none; text-align: right; color: var(--accent); font: .85rem/1.6 var(--mono); }
 .stage-value strong { display: block; font-size: 1.46rem; }
@@ -508,6 +514,7 @@ canvas { display: block; width: 100%; }
 .ranking-bar .negative, .ranking .winner .ranking-bar span { background: var(--mw-warm, #a35638); }
 .ranking .winner { background: var(--mw-warm-soft, #fae7da); color: var(--mw-warm, #733b23); }
 .capture-panel-heading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px 5px; }
+.capture-panel-heading .formula-trigger { margin-inline-end: auto; }
 .capture-total, .capture-update { font-size: .75rem; color: var(--muted); }
 .capture-update { margin: 2px 0; }
 .capture-current { flex: 0 1 auto; max-height: 56px; overflow: auto; margin-top: 4px; }
@@ -572,6 +579,16 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
 .iteration-navigation { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; min-width: 0; }
 .iteration-navigation > button { white-space: nowrap; }
 .playback-dialog-body { overflow: auto; overscroll-behavior: contain; padding: 14px 18px; }
+#formula-dialog { --dialog-width: 690px; max-height: min(75dvh, 35rem); }
+.formula { margin: 0; padding-block: 9px; }
+.formula + .formula { border-top: 1px solid var(--line); }
+.formula figcaption { color: var(--muted); font-size: .8rem; }
+.formula-expression { overflow-x: auto; padding: 5px 2px; }
+.formula-expression math { width: max-content; font-size: 1.1rem; }
+@media (min-width: 620px) {
+  .metric-formulas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; }
+  .metric-formulas .formula-wide { grid-column: 1 / -1; }
+}
 #iteration-states:not([hidden]) {
   display: grid;
   grid-template-rows: auto auto auto auto;
