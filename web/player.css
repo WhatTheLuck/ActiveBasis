@@ -352,6 +352,9 @@ canvas { display: block; width: 100%; }
   padding: 7px 12px; min-height: 38px; background: var(--surface); font-size: .83rem;
   border: 1px solid var(--line); border-radius: var(--mw-radius, 7px);
 }
+.action-button.round-add {
+  flex: none; width: 38px; padding: 0; color: var(--accent); font-size: 1.25rem; line-height: 1;
+}
 .action-button:not(:disabled):hover, .variant-choice:not(:disabled):hover { border-color: var(--mw-strong-line, #9ab6a1); background: var(--accent-light); }
 .action-button.primary { background: var(--accent); color: var(--mw-on-accent, white); border-color: var(--accent); }
 .action-button.primary:not(:disabled):hover { background: var(--mw-accent-hover, #174836); }
@@ -639,6 +642,7 @@ body:has(.playback-dialog[open]) { overflow: hidden; }
   .brand-mark { width: 30px; height: 30px; }
   .round-bar { order: 1; flex-basis: 100%; gap: 8px; font-size: .74rem; }
   .round-bar > button { min-height: 32px; padding: 4px 7px; font-size: .75rem; }
+  .action-button.round-add { width: 34px; min-height: 34px; }
   .round-step { min-width: 42px; }
   .playback-dialog { width: calc(100% - 16px); }
   .playback-dialog-header, .playback-dialog-body { padding-inline: 11px; }

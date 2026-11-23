@@ -2070,7 +2070,7 @@ function launchControls() {
       [["learnedMin", "下限", 3, 1, 32], ["learnedMax", "上限", 8, 1, 32]], [1, 32]),
   );
   const iteration = element("div", "control-strip parameter-grid");
-  iteration.append(parameter("rounds", "初始训练轮数", "运行训练时执行的轮数。到达最后一轮后，可用「训练下一轮」继续迭代。", 2, 1),
+  iteration.append(parameter("rounds", "初始训练轮数", "运行训练时执行的轮数。点击轮次栏右侧的加号可继续迭代。", 2, 1),
     parameter("growth", "字典满载时扩容单词数", "新一轮开始时，若上轮重学习填满字典，就新增这么多空槽。设为 0 时保持字典容量。", 3, 0, 12));
   get("iteration-settings").append(parameterPanel("", iteration));
   form.append(trainButton, cancelButton);
@@ -2176,7 +2176,7 @@ function controlsState() {
   trainButton.disabled = !sourceReady || running;
   cancelButton.hidden = !running;
   trainButton.textContent = running ? "正在训练…" : "运行训练";
-  syncIterationNext();
+  syncRoundActions();
 }
 
 async function api(action, parameters, signal) {
@@ -2191,7 +2191,8 @@ async function api(action, parameters, signal) {
 }
 
 const roundTimelines = [get("round"), get("iteration-steps")];
-const nextRoundButtons = [get("top-round-next"), get("iteration-next")];
+const iterationNext = get("iteration-next");
+const addRoundButtons = [get("top-round-add"), get("iteration-round-add")];
 
 function canContinue() {
   return live && data.rounds.length > 0;
@@ -2203,25 +2204,25 @@ function openIterations() {
   if (!sourceReady && !canContinue()) {
     iterationStatus.textContent = form.hidden ? "离线回放" : "在「乐谱量化」选择音轨后即可训练。";
   } else if (!iterationStatus.textContent && !trainingRun && data.rounds.length) {
-    iterationStatus.textContent = "当前为保存的回放。到达最后一轮后，可继续训练。";
+    iterationStatus.textContent = "当前为保存的回放。点击加号可从最后一轮继续训练。";
   }
   iterationDialog.showModal();
   syncRoundTimelines();
   refreshIterations();
 }
 
-function syncIterationNext() {
-  const hasNext = state.round + 1 < data.rounds.length;
-  const canTrain = canContinue();
-  for (const button of nextRoundButtons) {
-    button.textContent = !hasNext && canTrain ? "训练下一轮" : "下一轮";
-    button.disabled = !hasNext && (!canTrain || trainingPending());
+function syncRoundActions() {
+  get("iteration-prev").disabled = !data.rounds.length || state.round === 0;
+  iterationNext.disabled = state.round + 1 >= data.rounds.length;
+  const canAddRound = canContinue() && !trainingPending();
+  for (const button of addRoundButtons) {
+    button.hidden = !live;
+    button.disabled = !canAddRound;
   }
 }
 
 function syncRoundTimelines() {
-  get("iteration-prev").disabled = !data.rounds.length || state.round === 0;
-  syncIterationNext();
+  syncRoundActions();
   for (const strip of roundTimelines) {
     let selected;
     for (const item of strip.querySelectorAll("[data-round]")) {
@@ -2244,10 +2245,11 @@ get("open-iterations").addEventListener("click", () => {
   openIterations();
 });
 get("iteration-prev").addEventListener("click", () => changeRun("round", state.round - 1));
-for (const button of nextRoundButtons) {
+iterationNext.addEventListener("click", () => changeRun("round", state.round + 1));
+for (const button of addRoundButtons) {
   button.addEventListener("click", () => {
-    if (state.round + 1 < data.rounds.length) changeRun("round", state.round + 1);
-    else if (canContinue() && !trainingPending()) void runTraining(true);
+    if (!canContinue() || trainingPending()) return;
+    void runTraining(true);
     openIterations();
   });
 }
