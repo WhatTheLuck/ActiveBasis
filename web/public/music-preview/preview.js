@@ -35,8 +35,9 @@
   const rawSamples = new Map();
   const buffers = new Map();
   let audio, master, current, toolbar;
+  let playbackStatus = '', preloadStatus = '';
 
-  function loadScript(path) {
+  function loadScript(path, priority = 'auto') {
     if (!scripts.has(path)) {
       const task = new Promise((resolve, reject) => {
         const script = document.createElement('script');
@@ -51,6 +52,7 @@
           resolve();
           return;
         }
+        script.fetchPriority = priority;
         script.src = new URL(path, assetRoot);
         script.onload = () => { script.remove(); resolve(); };
         script.onerror = () => { script.remove(); reject(new Error('无法加载本地试听资源，请重试。')); };
@@ -123,10 +125,15 @@
     };
   }
 
-  function updateStatus(message = '') {
+  function renderStatus() {
     if (!toolbar) return;
-    toolbar.querySelector('output').textContent = message;
+    toolbar.querySelector('output').textContent = playbackStatus || preloadStatus;
     toolbar.querySelector('button').disabled = !current;
+  }
+
+  function updateStatus(message = '') {
+    playbackStatus = message;
+    renderStatus();
   }
 
   function finish(state, reason) {
@@ -141,7 +148,7 @@
       }
     }
     state.onEnd?.(reason);
-    updateStatus(reason === 'error' ? '音色加载失败，请重试' : '');
+    updateStatus(state.error ?? '');
   }
 
   function setSetting(key, value) {
@@ -152,8 +159,39 @@
       master.gain.setTargetAtTime((value / 100) ** 2, audio.currentTime, .025);
     } else if (key !== 'volume' && current) {
       finish(current, 'stopped');
+    } else if (key === 'instrument') {
+      updateStatus();
     }
     try { localStorage.setItem(storageKey, JSON.stringify(settings)); } catch { /* Session only. */ }
+  }
+
+  async function loadBank(instrument, priority) {
+    if (rawSamples.has(instrument)) return rawSamples.get(instrument);
+    const path = 'samples/' + instrument + '.js';
+    const name = instruments.find(([id]) => id === instrument)[1];
+    try {
+      await loadScript(path, priority);
+      const bank = rawSamples.get(instrument);
+      if (bank) return bank;
+    } catch { /* The next audition can retry the failed request. */ }
+    scripts.delete(path);
+    throw new Error(`无法读取「${name}」的本地音色文件，请刷新后重试。`);
+  }
+
+  function preloadBanks() {
+    const ordered = [settings.instrument, ...instruments.map(([id]) => id).filter((id) => id !== settings.instrument)];
+    let loaded = 0, remaining = ordered.length;
+    const show = () => {
+      preloadStatus = remaining ? `预载音色 ${loaded}/${ordered.length}`
+        : loaded < ordered.length ? `已预载 ${loaded}/${ordered.length} 款，缺失音色会在试听时重试` : '';
+      renderStatus();
+    };
+    show();
+    for (const [index, instrument] of ordered.entries()) {
+      loadBank(instrument, index === 0 ? 'high' : 'low')
+        .then(() => { loaded++; }, () => {})
+        .finally(() => { remaining--; show(); });
+    }
   }
 
   async function sampleFor(instrument, pitch) {
@@ -161,11 +199,16 @@
     const key = instrument + ':' + root;
     if (!buffers.has(key)) {
       const pending = (async () => {
-        await loadScript('samples/' + instrument + '.js');
-        const base64 = rawSamples.get(instrument)?.[root];
+        const bank = await loadBank(instrument);
+        const base64 = bank[root];
         if (!base64) throw new Error('找不到对应音高的采样。');
         const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
-        return { buffer: await audio.decodeAudioData(bytes.buffer), root };
+        try {
+          return { buffer: await audio.decodeAudioData(bytes.buffer), root };
+        } catch (error) {
+          const name = instruments.find(([id]) => id === instrument)[1];
+          throw new Error(`浏览器无法解码「${name}」的采样。`, { cause: error });
+        }
       })();
       buffers.set(key, pending);
       pending.catch(() => buffers.delete(key));
@@ -226,13 +269,16 @@
     updateStatus('正在加载音色…');
     async function start() {
       if (!audio) {
-        audio = new (window.AudioContext || window.webkitAudioContext)();
+        const AudioEngine = window.AudioContext || window.webkitAudioContext;
+        if (!AudioEngine) throw new Error('当前浏览器无法使用网页音频。');
+        audio = new AudioEngine();
         master = audio.createGain();
         master.gain.value = (settings.volume / 100) ** 2;
         const compressor = audio.createDynamicsCompressor();
         master.connect(compressor).connect(audio.destination);
       }
-      await audio.resume();
+      try { await audio.resume(); }
+      catch (error) { throw new Error('浏览器无法启动音频，请检查网页的声音权限。', { cause: error }); }
       if (current !== state) return;
       const pitches = [...new Set(options.pitches ?? events.map((note) => note[2]))];
       const samples = new Map(await Promise.all(pitches.map(async (pitch) => [pitch, await sampleFor(instrument, pitch)])));
@@ -272,6 +318,7 @@
     }
     start().catch((error) => {
       if (current !== state) return;
+      state.error = error.message;
       finish(state, 'error');
       options.onError?.(error.message);
     });
@@ -352,6 +399,7 @@
     const header = document.querySelector('[data-musicword-preview]');
     if (header) header.append(toolbar);
     else document.body.prepend(toolbar);
+    renderStatus();
   }
 
   const api = {
@@ -366,7 +414,10 @@
     registerSamples: (name, bank) => rawSamples.set(name, bank),
   };
   window.MusicWordPreview = api;
-  if (!upstream) window.addEventListener('pagehide', api.stop);
+  if (!upstream) {
+    window.addEventListener('pagehide', api.stop);
+    preloadBanks();
+  }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount, { once: true });
   else mount();
 })();
