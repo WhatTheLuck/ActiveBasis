@@ -43,7 +43,17 @@
         <select id="stage-select"><option value="" disabled hidden>选择训练阶段</option></select>
       </label>
     </aside>
-    <main id="workspace"><h1 class="sr-only">ActiveBasis</h1></main>
+    <main id="workspace">
+      <h1 class="sr-only">ActiveBasis</h1>
+      <section id="stage-process" class="playback-stage formula-reference" aria-labelledby="stage-process-title">
+        <header class="stage-heading"><h2 id="stage-process-title">总过程</h2></header>
+        <div class="formula-grid" data-equations="process"></div>
+      </section>
+      <section id="stage-metrics" class="playback-stage formula-reference" aria-labelledby="stage-metrics-title">
+        <header class="stage-heading"><h2 id="stage-metrics-title">匹配度指标</h2></header>
+        <div class="formula-grid" data-equations="metrics"></div>
+      </section>
+    </main>
   </div>
   <dialog id="response-dictionary-dialog" class="playback-dialog" aria-labelledby="response-dictionary-title">
     <header class="playback-dialog-header">
@@ -73,30 +83,20 @@
       <details id="iteration-settings">
         <summary>迭代设置</summary>
       </details>
-      <div class="formula-links">
-        <button class="formula-trigger" type="button" data-formulas="process" aria-haspopup="dialog">总过程公式</button>
-        <button class="formula-trigger" type="button" data-formulas="metrics" aria-haspopup="dialog">匹配度指标</button>
-      </div>
       <section id="iteration-trend" aria-label="指标曲线"></section>
       <div id="iteration-states" role="region" aria-label="训练轮次对照" tabindex="0" hidden></div>
     </div>
-  </dialog>
-  <dialog id="formula-dialog" class="playback-dialog" aria-labelledby="formula-title">
-    <header class="playback-dialog-header">
-      <h2 id="formula-title"></h2>
-      <form method="dialog"><button class="action-button" autofocus>关闭</button></form>
-    </header>
-    <div id="formula-content" class="playback-dialog-body"></div>
   </dialog>
   <template id="stage-template">
     <section class="playback-stage">
       <header class="stage-heading">
         <div>
-          <div class="stage-title"><h2 data-part="title"></h2></div>
+          <h2 data-part="title"></h2>
           <p data-part="description"></p>
         </div>
         <div data-part="value" class="stage-value"></div>
       </header>
+      <div data-part="formulas" class="formula-grid"></div>
       <div data-part="controls"></div>
       <div data-part="context"></div>
       <div data-part="transport" class="transport" role="group">
@@ -122,7 +122,7 @@
     </section>
   </template>
   <!-- Native MathML with the original TeX stored in each annotation. -->
-  <template id="formulas-trials" data-title="初始化字典公式">
+  <template id="formulas-trials">
     <figure class="formula">
       <figcaption>用音符基元构建模板</figcaption>
       <div class="formula-expression" role="group" aria-label="用音符基元构建模板" tabindex="0">
@@ -147,7 +147,7 @@
       </div>
     </figure>
   </template>
-  <template id="formulas-matches" data-title="拼图重构乐谱公式">
+  <template id="formulas-matches">
     <figure class="formula">
       <figcaption>重构所用的字典</figcaption>
       <div class="formula-expression" role="group" aria-label="重构所用的字典" tabindex="0">
@@ -184,7 +184,7 @@ M &amp;= \sum_k^K M^k + U_k \\
       </div>
     </figure>
   </template>
-  <template id="formulas-captures" data-title="裁切数据集公式">
+  <template id="formulas-captures">
     <figure class="formula">
       <figcaption>逆变换对齐片段</figcaption>
       <div class="formula-expression" role="group" aria-label="逆变换对齐片段" tabindex="0">
@@ -212,7 +212,7 @@ M &amp;= \sum_k^K M^k + U_k \\
       </div>
     </figure>
   </template>
-  <template id="formulas-learning" data-title="字典重学习公式">
+  <template id="formulas-learning">
     <figure class="formula">
       <figcaption>Active Basis 模型</figcaption>
       <div class="formula-expression" role="group" aria-label="Active Basis 模型" tabindex="0">
@@ -243,7 +243,7 @@ M &amp;= \sum_k^K M^k + U_k \\
       </div>
     </figure>
   </template>
-  <template id="formulas-process" data-title="总过程公式">
+  <template id="formulas-process">
     <figure class="formula">
       <figcaption>最小化贝叶斯信息准则（BIC，附图目标）</figcaption>
       <div class="formula-expression" role="group" aria-label="最小化贝叶斯信息准则（BIC，附图目标）" tabindex="0">
@@ -258,7 +258,7 @@ M &amp;= \sum_k^K M^k + U_k \\
       </div>
     </figure>
   </template>
-  <template id="formulas-variants" data-title="相似度量公式">
+  <template id="formulas-variants">
     <figure class="formula">
       <figcaption>零均值归一化互相关（ZNCC）</figcaption>
       <div class="formula-expression" role="group" aria-label="零均值归一化互相关（ZNCC）" tabindex="0">
@@ -312,120 +312,118 @@ M &amp;= \sum_k^K M^k + U_k \\
       </div>
     </figure>
   </template>
-  <template id="formulas-metrics" data-title="匹配度指标">
-    <div class="metric-formulas">
-      <figure class="formula formula-wide">
-        <figcaption>调整兰德指数（ARI）</figcaption>
-        <div class="formula-expression" role="group" aria-label="调整兰德指数（ARI）" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">R</mi><mi mathvariant="normal">I</mi></mrow>
-            <mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><mrow><mo fence="true">(</mo>
-            <mfrac linethickness="0px"><msub><mi>n</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mn>2</mn></mfrac>
-            <mo fence="true">)</mo></mrow><mo>−</mo><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
-            <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
-            <mo fence="true">)</mo></mrow><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
-            <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
-            <mo fence="true">]</mo></mrow><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">/</mo>
-            <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><mi>n</mi><mn>2</mn></mfrac><mo fence="true">)</mo></mrow></mrow>
-            <mrow><mfrac><mn>1</mn><mn>2</mn></mfrac><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
-            <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
-            <mo fence="true">)</mo></mrow><mo>+</mo><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
-            <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
-            <mo fence="true">]</mo></mrow><mo>−</mo><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
-            <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
-            <mo fence="true">)</mo></mrow><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
-            <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
-            <mo fence="true">]</mo></mrow><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">/</mo>
-            <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><mi>n</mi><mn>2</mn></mfrac><mo fence="true">)</mo></mrow></mrow></mfrac></mrow>
-            <annotation encoding="application/x-tex">\mathrm{ARI}=
+  <template id="formulas-metrics">
+    <figure class="formula">
+      <figcaption>调整兰德指数（ARI）</figcaption>
+      <div class="formula-expression" role="group" aria-label="调整兰德指数（ARI）" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><mrow><mi mathvariant="normal">A</mi><mi mathvariant="normal">R</mi><mi mathvariant="normal">I</mi></mrow>
+          <mo>=</mo><mfrac><mrow><munder><mo>∑</mo><mrow><mi>i</mi><mi>j</mi></mrow></munder><mrow><mo fence="true">(</mo>
+          <mfrac linethickness="0px"><msub><mi>n</mi><mrow><mi>i</mi><mi>j</mi></mrow></msub><mn>2</mn></mfrac>
+          <mo fence="true">)</mo></mrow><mo>−</mo><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
+          <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
+          <mo fence="true">)</mo></mrow><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
+          <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
+          <mo fence="true">]</mo></mrow><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">/</mo>
+          <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><mi>n</mi><mn>2</mn></mfrac><mo fence="true">)</mo></mrow></mrow>
+          <mrow><mfrac><mn>1</mn><mn>2</mn></mfrac><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
+          <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
+          <mo fence="true">)</mo></mrow><mo>+</mo><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
+          <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
+          <mo fence="true">]</mo></mrow><mo>−</mo><mrow><mo fence="true">[</mo><munder><mo>∑</mo><mi>i</mi></munder>
+          <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><msub><mi>a</mi><mi>i</mi></msub><mn>2</mn></mfrac>
+          <mo fence="true">)</mo></mrow><munder><mo>∑</mo><mi>j</mi></munder><mrow><mo fence="true">(</mo>
+          <mfrac linethickness="0px"><msub><mi>b</mi><mi>j</mi></msub><mn>2</mn></mfrac><mo fence="true">)</mo></mrow>
+          <mo fence="true">]</mo></mrow><mo fence="false" stretchy="true" minsize="1.2em" maxsize="1.2em">/</mo>
+          <mrow><mo fence="true">(</mo><mfrac linethickness="0px"><mi>n</mi><mn>2</mn></mfrac><mo fence="true">)</mo></mrow></mrow></mfrac></mrow>
+          <annotation encoding="application/x-tex">\mathrm{ARI}=
 \frac{\sum_{ij}\binom{n_{ij}}{2}
   -\left[\sum_i\binom{a_i}{2}\sum_j\binom{b_j}{2}\right]\big/\binom{n}{2}}
 {\frac{1}{2}\left[\sum_i\binom{a_i}{2}+\sum_j\binom{b_j}{2}\right]
   -\left[\sum_i\binom{a_i}{2}\sum_j\binom{b_j}{2}\right]\big/\binom{n}{2}}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-      <figure class="formula">
-        <figcaption>重构均方根误差（RMSE）</figcaption>
-        <div class="formula-expression" role="group" aria-label="重构均方根误差（RMSE）" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><mrow><mi mathvariant="normal">R</mi><mi mathvariant="normal">M</mi><mi mathvariant="normal">S</mi>
-            <mi mathvariant="normal">E</mi></mrow><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>n</mi></mfrac>
-            <munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msup>
-            <mrow><mo fence="true">(</mo><msubsup><mi>I</mi><mi>i</mi><mrow><mi>R</mi><mi>e</mi><mi>c</mi>
-            <mi>o</mi><mi>n</mi><mi>s</mi><mi>t</mi><mi>r</mi><mi>u</mi><mi>c</mi><mi>t</mi><mi>i</mi><mi>o</mi>
-            <mi>n</mi></mrow></msubsup><mo>−</mo><msub><mi>I</mi><mi>i</mi></msub><mo fence="true">)</mo></mrow>
-            <mn>2</mn></msup></mrow></msqrt></mrow>
-            <annotation encoding="application/x-tex">\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^n
+        </semantics></math>
+      </div>
+    </figure>
+    <figure class="formula">
+      <figcaption>重构均方根误差（RMSE）</figcaption>
+      <div class="formula-expression" role="group" aria-label="重构均方根误差（RMSE）" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><mrow><mi mathvariant="normal">R</mi><mi mathvariant="normal">M</mi><mi mathvariant="normal">S</mi>
+          <mi mathvariant="normal">E</mi></mrow><mo>=</mo><msqrt><mrow><mfrac><mn>1</mn><mi>n</mi></mfrac>
+          <munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>n</mi></munderover><msup>
+          <mrow><mo fence="true">(</mo><msubsup><mi>I</mi><mi>i</mi><mrow><mi>R</mi><mi>e</mi><mi>c</mi>
+          <mi>o</mi><mi>n</mi><mi>s</mi><mi>t</mi><mi>r</mi><mi>u</mi><mi>c</mi><mi>t</mi><mi>i</mi><mi>o</mi>
+          <mi>n</mi></mrow></msubsup><mo>−</mo><msub><mi>I</mi><mi>i</mi></msub><mo fence="true">)</mo></mrow>
+          <mn>2</mn></msup></mrow></msqrt></mrow>
+          <annotation encoding="application/x-tex">\mathrm{RMSE}=\sqrt{\frac{1}{n}\sum_{i=1}^n
 \left(I_i^{\mathit{Reconstruction}}-I_i\right)^2}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-      <figure class="formula">
-        <figcaption>同质性（Homogeneity）</figcaption>
-        <div class="formula-expression" role="group" aria-label="同质性（Homogeneity）" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><mrow><mi mathvariant="normal">H</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
-            <mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow>
-            <mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mi>H</mi><mo stretchy="false">(</mo><mi>C</mi><mo>∣</mo>
-            <mi>K</mi><mo stretchy="false">)</mo></mrow><mrow><mi>H</mi><mo stretchy="false">(</mo><mi>C</mi>
-            <mo stretchy="false">)</mo></mrow></mfrac></mrow>
-            <annotation encoding="application/x-tex">\mathrm{Homogeneity}=1-\frac{H(C\mid K)}{H(C)}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-      <figure class="formula">
-        <figcaption>完整性（Completeness）</figcaption>
-        <div class="formula-expression" role="group" aria-label="完整性（Completeness）" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><mrow><mi mathvariant="normal">C</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
-            <mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi>
-            <mi mathvariant="normal">s</mi></mrow><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mi>H</mi><mo stretchy="false">(</mo>
-            <mi>K</mi><mo>∣</mo><mi>C</mi><mo stretchy="false">)</mo></mrow><mrow><mi>H</mi><mo stretchy="false">(</mo>
-            <mi>K</mi><mo stretchy="false">)</mo></mrow></mfrac></mrow>
-            <annotation encoding="application/x-tex">\mathrm{Completeness}=1-\frac{H(K\mid C)}{H(K)}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-      <figure class="formula">
-        <figcaption>单对片段交并比（IoU）</figcaption>
-        <div class="formula-expression" role="group" aria-label="单对片段交并比（IoU）" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><msub><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">U</mi></mrow>
-            <mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mfrac><mrow><mi mathvariant="normal">∣</mi>
-            <msub><mi>A</mi><mi>i</mi></msub><mo>∩</mo><msub><mi>B</mi><mi>j</mi></msub><mi mathvariant="normal">∣</mi></mrow>
-            <mrow><mi mathvariant="normal">∣</mi><msub><mi>A</mi><mi>i</mi></msub><mo>∪</mo><msub><mi>B</mi>
-            <mi>j</mi></msub><mi mathvariant="normal">∣</mi></mrow></mfrac></mrow>
-            <annotation encoding="application/x-tex">\mathrm{IoU}_{ij}=\frac{|A_i\cap B_j|}{|A_i\cup B_j|}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-      <figure class="formula formula-wide">
-        <figcaption>V-Measure</figcaption>
-        <div class="formula-expression" role="group" aria-label="V-Measure" tabindex="0">
-          <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
-            <mrow><mtext>V-Measure</mtext><mo>=</mo><mn>2</mn><mo>×</mo><mfrac><mrow><mrow><mi mathvariant="normal">H</mi>
-            <mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi>
-            <mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow><mo>×</mo><mrow><mi mathvariant="normal">C</mi>
-            <mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">s</mi></mrow></mrow>
-            <mrow><mrow><mi mathvariant="normal">H</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
-            <mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow>
-            <mo>+</mo><mrow><mi mathvariant="normal">C</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
-            <mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi>
-            <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi>
-            <mi mathvariant="normal">s</mi></mrow></mrow></mfrac></mrow>
-            <annotation encoding="application/x-tex">\text{V-Measure}=2\times\frac{\mathrm{Homogeneity}\times\mathrm{Completeness}}
+        </semantics></math>
+      </div>
+    </figure>
+    <figure class="formula">
+      <figcaption>同质性（Homogeneity）</figcaption>
+      <div class="formula-expression" role="group" aria-label="同质性（Homogeneity）" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><mrow><mi mathvariant="normal">H</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
+          <mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow>
+          <mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mi>H</mi><mo stretchy="false">(</mo><mi>C</mi><mo>∣</mo>
+          <mi>K</mi><mo stretchy="false">)</mo></mrow><mrow><mi>H</mi><mo stretchy="false">(</mo><mi>C</mi>
+          <mo stretchy="false">)</mo></mrow></mfrac></mrow>
+          <annotation encoding="application/x-tex">\mathrm{Homogeneity}=1-\frac{H(C\mid K)}{H(C)}</annotation>
+        </semantics></math>
+      </div>
+    </figure>
+    <figure class="formula">
+      <figcaption>完整性（Completeness）</figcaption>
+      <div class="formula-expression" role="group" aria-label="完整性（Completeness）" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><mrow><mi mathvariant="normal">C</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
+          <mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi>
+          <mi mathvariant="normal">s</mi></mrow><mo>=</mo><mn>1</mn><mo>−</mo><mfrac><mrow><mi>H</mi><mo stretchy="false">(</mo>
+          <mi>K</mi><mo>∣</mo><mi>C</mi><mo stretchy="false">)</mo></mrow><mrow><mi>H</mi><mo stretchy="false">(</mo>
+          <mi>K</mi><mo stretchy="false">)</mo></mrow></mfrac></mrow>
+          <annotation encoding="application/x-tex">\mathrm{Completeness}=1-\frac{H(K\mid C)}{H(K)}</annotation>
+        </semantics></math>
+      </div>
+    </figure>
+    <figure class="formula">
+      <figcaption>单对片段交并比（IoU）</figcaption>
+      <div class="formula-expression" role="group" aria-label="单对片段交并比（IoU）" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><msub><mrow><mi mathvariant="normal">I</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">U</mi></mrow>
+          <mrow><mi>i</mi><mi>j</mi></mrow></msub><mo>=</mo><mfrac><mrow><mi mathvariant="normal">∣</mi>
+          <msub><mi>A</mi><mi>i</mi></msub><mo>∩</mo><msub><mi>B</mi><mi>j</mi></msub><mi mathvariant="normal">∣</mi></mrow>
+          <mrow><mi mathvariant="normal">∣</mi><msub><mi>A</mi><mi>i</mi></msub><mo>∪</mo><msub><mi>B</mi>
+          <mi>j</mi></msub><mi mathvariant="normal">∣</mi></mrow></mfrac></mrow>
+          <annotation encoding="application/x-tex">\mathrm{IoU}_{ij}=\frac{|A_i\cap B_j|}{|A_i\cup B_j|}</annotation>
+        </semantics></math>
+      </div>
+    </figure>
+    <figure class="formula">
+      <figcaption>V-Measure</figcaption>
+      <div class="formula-expression" role="group" aria-label="V-Measure" tabindex="0">
+        <math xmlns="http://www.w3.org/1998/Math/MathML" display="block"><semantics>
+          <mrow><mtext>V-Measure</mtext><mo>=</mo><mn>2</mn><mo>×</mo><mfrac><mrow><mrow><mi mathvariant="normal">H</mi>
+          <mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi>
+          <mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow><mo>×</mo><mrow><mi mathvariant="normal">C</mi>
+          <mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi><mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi><mi mathvariant="normal">s</mi></mrow></mrow>
+          <mrow><mrow><mi mathvariant="normal">H</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
+          <mi mathvariant="normal">o</mi><mi mathvariant="normal">g</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">i</mi><mi mathvariant="normal">t</mi><mi mathvariant="normal">y</mi></mrow>
+          <mo>+</mo><mrow><mi mathvariant="normal">C</mi><mi mathvariant="normal">o</mi><mi mathvariant="normal">m</mi>
+          <mi mathvariant="normal">p</mi><mi mathvariant="normal">l</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">t</mi>
+          <mi mathvariant="normal">e</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">e</mi><mi mathvariant="normal">s</mi>
+          <mi mathvariant="normal">s</mi></mrow></mrow></mfrac></mrow>
+          <annotation encoding="application/x-tex">\text{V-Measure}=2\times\frac{\mathrm{Homogeneity}\times\mathrm{Completeness}}
 {\mathrm{Homogeneity}+\mathrm{Completeness}}</annotation>
-          </semantics></math>
-        </div>
-      </figure>
-    </div>
+        </semantics></math>
+      </div>
+    </figure>
   </template>
   <script type="module" src="./player.js"></script>
 </body>

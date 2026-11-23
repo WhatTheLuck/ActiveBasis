@@ -35,7 +35,7 @@ const playbackProgress = {
     },
   },
 };
-const state = { round: 0, song: 0, activeStage: 0 };
+const state = { round: 0, song: 0, activeStage: "process" };
 const symbols = {
   back: '<path d="M18 7l-6 5 6 5M7 7v10"/>',
   next: '<path d="M6 7l6 5-6 5M17 7v10"/>',
@@ -968,8 +968,7 @@ function captureHistogram(view, round, panel) {
   }
   const total = groups.reduce((sum, group) => sum + group.length, 0);
   const header = element("div", "capture-panel-heading");
-  header.append(element("h3", "subheading", "裁切数据集"), formulaTrigger("captures"),
-    element("span", "capture-total", `累计 ${total} 个`));
+  header.append(element("h3", "subheading", "裁切数据集"), element("span", "capture-total", `累计 ${total} 个`));
   const matchedWord = panel.matches[panel.step - 1]?.template;
   const update = added.length ? `本步 ${templateName(matchedWord)} +${added.length}`
     : panel.step ? "本步未新增片段" : "初始状态，尚未裁切";
@@ -1815,26 +1814,6 @@ function play(panel) {
   if (panel.key === "learning") followLearningWord(panel);
 }
 
-function formulaTrigger(key) {
-  const trigger = button("公式", "formula-trigger");
-  trigger.dataset.formulas = key;
-  trigger.setAttribute("aria-haspopup", "dialog");
-  trigger.setAttribute("aria-label", get(`formulas-${key}`).dataset.title);
-  return trigger;
-}
-
-const formulaDialog = get("formula-dialog");
-document.addEventListener("click", (event) => {
-  const trigger = event.target.closest("button[data-formulas]");
-  if (!trigger) return;
-  const template = get(`formulas-${trigger.dataset.formulas}`);
-  get("formula-title").textContent = template.dataset.title;
-  const content = get("formula-content");
-  content.replaceChildren(template.content.cloneNode(true));
-  formulaDialog.showModal();
-  content.scrollTop = 0;
-});
-
 function createPanel([key, title, description]) {
   const section = get("stage-template").content.firstElementChild.cloneNode(true);
   if (key === "similarity") {
@@ -1852,7 +1831,14 @@ function createPanel([key, title, description]) {
   section.setAttribute("aria-labelledby", parts.title.id);
   parts.title.textContent = title;
   parts.description.textContent = description;
-  if (get(`formulas-${key}`)) parts.title.parentElement.append(formulaTrigger(key));
+  if (get(`formulas-${key}`)) parts.formulas.dataset.equations = key;
+  if (key === "matches") {
+    const captures = element("section", "capture-formulas");
+    const equations = element("div", "formula-grid");
+    equations.dataset.equations = "captures";
+    captures.append(element("h3", "subheading", "裁切数据集公式"), equations);
+    parts.view.after(captures);
+  }
   if (key === "variants") {
     parts.responseDictionary = get("response-dictionary");
     parts.responseDialog = get("response-dictionary-dialog");
@@ -1883,22 +1869,29 @@ function createPanel([key, title, description]) {
   parts.speed.addEventListener("change", () => { if (panel.timer) { stop(panel); play(panel); } });
 
   if (key === "similarity") get("stage-variants").append(section);
-  else {
-    const link = element("a", "stage-button");
-    link.href = `#${section.id}`;
-    link.append(element("span", "stage-label", title));
-    get("stages").append(link);
-    get("stage-select").add(new Option(title, key));
-    get("workspace").append(section);
-  }
+  else get("stage-metrics").before(section);
   return panel;
 }
 
 const panels = stages.map(createPanel);
+for (const slot of document.querySelectorAll("[data-equations]")) {
+  slot.append(get(`formulas-${slot.dataset.equations}`).content.cloneNode(true));
+}
 const topbar = document.querySelector(".topbar");
-const mobileStage = get("stage-select").closest("label");
+const stageSelect = get("stage-select");
+const mobileStage = stageSelect.closest("label");
 const stageToggle = get("stage-toggle");
 const stageNav = get("stages");
+const navigation = [...get("workspace").querySelectorAll(":scope > .playback-stage")].map(section => {
+  const title = get(section.getAttribute("aria-labelledby"));
+  const key = section.id.slice("stage-".length);
+  const link = element("a", "stage-button");
+  link.href = `#${section.id}`;
+  link.append(element("span", "stage-label", title.textContent));
+  stageNav.append(link);
+  stageSelect.add(new Option(title.textContent, key));
+  return { key, section, title, link };
+});
 stageToggle.addEventListener("click", () => {
   const expanded = stageNav.hidden;
   const label = expanded ? "收起训练流程" : "展开训练流程";
@@ -1911,18 +1904,16 @@ stageToggle.addEventListener("click", () => {
 
 function syncLocation() {
   const boundary = Math.max(topbar.getBoundingClientRect().bottom, mobileStage.getBoundingClientRect().bottom);
-  let active = 0;
-  for (const [index, { key, parts }] of panels.entries()) {
-    if (key === "similarity") continue;
-    if (parts.title.getBoundingClientRect().top <= boundary + 60) active = index;
+  let active = navigation[0];
+  for (const item of navigation) {
+    if (item.title.getBoundingClientRect().top <= boundary + 60) active = item;
   }
   const atBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 2;
-  state.activeStage = atBottom ? panels.length - 1 : active;
-  const { key, section } = panels[state.activeStage];
-  get("stage-select").value = key;
-  for (const link of stageNav.children) {
-    if (link.hash === `#${section.id}`) link.setAttribute("aria-current", "location");
-    else link.removeAttribute("aria-current");
+  if (atBottom) active = navigation.at(-1);
+  state.activeStage = stageSelect.value = active.key;
+  for (const item of navigation) {
+    if (item === active) item.link.setAttribute("aria-current", "location");
+    else item.link.removeAttribute("aria-current");
   }
   if (playingPanel) {
     const rect = playingPanel.section.getBoundingClientRect();
@@ -1974,8 +1965,8 @@ function changeRun(key, value, preservePosition = false) {
   updateSharedScore();
 }
 
-get("stage-select").addEventListener("change", (event) => {
-  const { section } = byStage(event.target.value);
+stageSelect.addEventListener("change", () => {
+  const { section } = navigation.find(({ key }) => key === stageSelect.value);
   if (location.hash === `#${section.id}`) section.scrollIntoView();
   else location.hash = section.id;
 });
@@ -2976,14 +2967,14 @@ new ResizeObserver(updateTopbarHeight).observe(topbar);
 updateTopbarHeight();
 window.addEventListener("keydown", (event) => {
   if (document.querySelector(".playback-dialog[open]")) return;
-  const panel = panels[state.activeStage];
-  if (event.target.closest?.("a, button, select, input, textarea, [contenteditable], .relearning-captures") ||
-      panel.parts.transport.hidden) return;
+  const panel = byStage(state.activeStage);
+  if (!panel || panel.parts.transport.hidden ||
+      event.target.closest?.("a, button, select, input, textarea, [contenteditable], .relearning-captures, .formula-expression")) return;
   if (event.key === " ") { event.preventDefault(); play(panel); }
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault(); stop(panel); setStep(panel, panel.step + (event.key === "ArrowLeft" ? -1 : 1));
   }
 });
-const initialSection = panels.find(({ section }) => `#${section.id}` === location.hash)?.section;
-if (initialSection) initialSection.scrollIntoView();
+const initialSection = get(location.hash.slice(1));
+if (initialSection?.matches(".playback-stage")) initialSection.scrollIntoView();
 syncLocation();
