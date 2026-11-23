@@ -3252,6 +3252,56 @@ async function initialize() {
 
 await initialize();
 
+window.MusicWordParameters = {
+  validate(values) {
+    if (!live) throw new Error("ActiveBasis 参数只读，请使用本地工作台。");
+    if (!values?.parameters || !values.view) throw new Error("ActiveBasis 参数方案无效。");
+    for (const field of document.querySelectorAll(".parameter-input")) {
+      const value = values.parameters[field.name];
+      const copy = field.cloneNode(true);
+      copy.disabled = false;
+      copy.value = value;
+      if (value === undefined || !copy.checkValidity()) throw new Error("ActiveBasis 参数超出允许范围：" + field.name);
+    }
+    const p = values.parameters;
+    if (!String(p.scales).split(",").every((value) => value.trim() && Number.isFinite(Number(value)) && Number(value) > 0) ||
+        [["noteMin", "noteMax"], ["durationMin", "duration"], ["learnedMin", "learnedMax"]]
+          .some(([min, max]) => Number(p[min]) > Number(p[max]))) throw new Error("ActiveBasis 参数范围无效。");
+    if (!(values.view.roundBatchCount === "" || (Number.isSafeInteger(Number(values.view.roundBatchCount)) && Number(values.view.roundBatchCount) > 0)) ||
+        !["0", "1", "2", "3"].includes(String(values.view.windowSize)) || typeof values.view.blurred !== "boolean" ||
+        !Array.from(similarityMetric.options).some((option) => option.value === values.view.similarityMetric) ||
+        !values.view.speeds || panels.some((panel) => !Array.from(panel.parts.speed.options)
+          .some((option) => option.value === values.view.speeds[panel.key]))) throw new Error("ActiveBasis 显示参数无效。");
+  },
+  snapshot() {
+    const values = {
+      parameters: Object.fromEntries(Array.from(document.querySelectorAll(".parameter-input"), (field) => [field.name, field.value])),
+      view: {roundBatchCount: roundBatchCount.value, windowSize: get("window-size").value, blurred: get("blurred").checked, similarityMetric: similarityMetric.value,
+        speeds: Object.fromEntries(panels.map((panel) => [panel.key, panel.parts.speed.value]))},
+    };
+    this.validate(values);
+    return values;
+  },
+  apply(values) {
+    this.validate(values);
+    for (const panel of panels) stop(panel);
+    const fields = [...document.querySelectorAll(".parameter-input")];
+    for (const field of fields) field.value = values.parameters[field.name];
+    // Set the whole form first; all mirrors and paired sliders read one complete snapshot.
+    for (const field of fields) field.dispatchEvent(new Event("input", {bubbles: true}));
+    get("window-size").value = values.view.windowSize;
+    get("window-size").dispatchEvent(new Event("input"));
+    get("blurred").checked = values.view.blurred;
+    get("blurred").dispatchEvent(new Event("change"));
+    similarityMetric.value = values.view.similarityMetric;
+    similarityMetric.dispatchEvent(new Event("change"));
+    for (const panel of panels) panel.parts.speed.value = values.view.speeds[panel.key];
+    roundBatchCount.value = values.view.roundBatchCount;
+    syncRoundActions();
+    syncAlgorithmControls();
+  },
+};
+
 window.addEventListener("scroll", onScroll, { passive: true });
 window.addEventListener("resize", onScroll);
 const updateTopbarHeight = () => {
